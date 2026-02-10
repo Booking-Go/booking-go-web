@@ -7,18 +7,17 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { authApi, RegisterPayload } from '@/lib/auth';
+import { useAuthStore } from '@/store/authStore';
+import { AxiosError } from 'axios';
 
-interface RegisterForm {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
+interface RegisterForm extends RegisterPayload {
   confirmPassword: string;
-  role: 'customer' | 'business_owner';
 }
 
 export default function RegisterPage() {
   const router = useRouter();
+  const login = useAuthStore((s) => s.login);
   const [isLoading, setIsLoading] = useState(false);
   const {
     register,
@@ -28,15 +27,19 @@ export default function RegisterPage() {
   } = useForm<RegisterForm>();
   const password = watch('password');
 
-  const onSubmit = async (data: RegisterForm) => {
+  const onSubmit = async (formData: RegisterForm) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual registration API call
-      console.log('Register data:', data);
+      const { confirmPassword, ...payload } = formData;
+      const response = await authApi.register(payload);
+      const { user, accessToken, refreshToken } = response.data;
+      login(user, accessToken, refreshToken);
       toast.success('Account created!');
-      // router.push('/dashboard');
-    } catch {
-      toast.error('Registration failed. Please try again.');
+      router.push('/dashboard');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error?: { message?: string } }>;
+      const msg = axiosError.response?.data?.error?.message || 'Registration failed. Please try again.';
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

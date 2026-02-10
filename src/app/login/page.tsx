@@ -7,30 +7,32 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-
-interface LoginForm {
-  email: string;
-  password: string;
-}
+import { authApi, LoginPayload } from '@/lib/auth';
+import { useAuthStore } from '@/store/authStore';
+import { AxiosError } from 'axios';
 
 export default function LoginPage() {
   const router = useRouter();
+  const login = useAuthStore((s) => s.login);
   const [isLoading, setIsLoading] = useState(false);
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>();
+  } = useForm<LoginPayload>();
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (formData: LoginPayload) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual login API call
-      console.log('Login data:', data);
-      toast.success('Login successful!');
-      // router.push('/dashboard');
-    } catch {
-      toast.error('Login failed. Please try again.');
+      const response = await authApi.login(formData);
+      const { user, accessToken, refreshToken } = response.data;
+      login(user, accessToken, refreshToken);
+      toast.success('Welcome back!');
+      router.push('/dashboard');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error?: { message?: string } }>;
+      const msg = axiosError.response?.data?.error?.message || 'Login failed. Please try again.';
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +93,7 @@ export default function LoginPage() {
               <input
                 {...register('password', {
                   required: 'Password is required',
-                  minLength: { value: 6, message: 'Minimum 6 characters' },
+                  minLength: { value: 8, message: 'Minimum 8 characters' },
                 })}
                 type="password"
                 placeholder="Enter your password"
