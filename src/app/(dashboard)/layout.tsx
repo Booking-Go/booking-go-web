@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Logo } from '@/components/shared';
 import { toast } from 'sonner';
 import {
@@ -85,9 +86,7 @@ const navItems: NavItem[] = [
 ];
 
 function SidebarNav({ pathname, userRole }: { pathname: string; userRole: string }) {
-  const filtered = navItems.filter(
-    (item) => !item.roles || item.roles.includes(userRole),
-  );
+  const filtered = navItems.filter((item) => !item.roles || item.roles.includes(userRole));
 
   return (
     <nav className="flex flex-col gap-1">
@@ -99,7 +98,7 @@ function SidebarNav({ pathname, userRole }: { pathname: string; userRole: string
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
             pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
               ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           )}
         >
           {item.icon}
@@ -110,11 +109,7 @@ function SidebarNav({ pathname, userRole }: { pathname: string; userRole: string
   );
 }
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
@@ -163,108 +158,148 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top navbar */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-          {/* Mobile menu trigger */}
-          <div className="flex items-center gap-3">
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64 p-4 pt-8">
-                <div onClick={() => setMobileOpen(false)}>
-                  <Logo href="/dashboard" />
-                </div>
-                <Separator className="my-4" />
-                <div onClick={() => setMobileOpen(false)}>
-                  <SidebarNav pathname={pathname} userRole={user.role} />
-                </div>
-              </SheetContent>
-            </Sheet>
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen bg-background">
+        {/* Top navbar */}
+        <header className="sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl">
+          <div className="flex h-14 items-center justify-between px-4 lg:px-6">
+            {/* Mobile menu trigger */}
+            <div className="flex items-center gap-3">
+              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="lg:hidden">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 p-4 pt-8">
+                  <div onClick={() => setMobileOpen(false)}>
+                    <Logo href="/dashboard" />
+                  </div>
+                  <Separator className="my-4" />
+                  <div onClick={() => setMobileOpen(false)}>
+                    <SidebarNav pathname={pathname} userRole={user.role} />
+                  </div>
+                </SheetContent>
+              </Sheet>
 
-            <Logo href="/dashboard" />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              aria-label="Messages"
-              onClick={() => router.push('/dashboard/messages')}
-            >
-              <MessageSquare className="h-4 w-4" />
-              {unreadMessages > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                  {unreadMessages > 99 ? '99+' : unreadMessages}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              aria-label="Notifications"
-              onClick={() => router.push('/dashboard/notifications')}
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </Button>
-            <ThemeToggle />
-            <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 sm:flex">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-medium">
-                {user.firstName} {user.lastName}
-              </span>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {user.role === 'business_owner' ? 'Business' : user.role === 'admin' ? 'Admin' : 'Customer'}
-              </span>
+              <Logo href="/dashboard" />
             </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5">
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Sign out</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Sign out?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You will be signed out of your account and redirected to the login page.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Sign out
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    aria-label="Messages"
+                    onClick={() => router.push('/dashboard/messages')}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {unreadMessages > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {unreadMessages > 99 ? '99+' : unreadMessages}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {unreadMessages > 0
+                      ? `${unreadMessages} unread message${unreadMessages > 1 ? 's' : ''}`
+                      : 'Messages'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    aria-label="Notifications"
+                    onClick={() => router.push('/dashboard/notifications')}
+                  >
+                    <Bell className="h-4 w-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {unreadCount > 0
+                      ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+                      : 'Notifications'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <ThemeToggle />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Toggle theme</p>
+                </TooltipContent>
+              </Tooltip>
+              <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 sm:flex">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-medium">
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {user.role === 'business_owner'
+                    ? 'Business'
+                    : user.role === 'admin'
+                      ? 'Admin'
+                      : 'Customer'}
+                </span>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1.5">
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Sign out</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You will be signed out of your account and redirected to the login page.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleLogout}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Sign out
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
+        </header>
+
+        <div className="flex">
+          {/* Desktop sidebar */}
+          <aside className="hidden w-64 shrink-0 border-r border-border/40 lg:block">
+            <div className="sticky top-14 p-4">
+              <SidebarNav pathname={pathname} userRole={user.role} />
+            </div>
+          </aside>
+
+          {/* Main content */}
+          <main className="flex-1 p-6 lg:p-8">{children}</main>
         </div>
-      </header>
-
-      <div className="flex">
-        {/* Desktop sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-border/40 lg:block">
-          <div className="sticky top-14 p-4">
-            <SidebarNav pathname={pathname} userRole={user.role} />
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
