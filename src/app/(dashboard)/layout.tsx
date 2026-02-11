@@ -32,6 +32,7 @@ import {
   Menu,
   Bell,
   MessageSquare,
+  BarChart3,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,12 @@ const navItems: NavItem[] = [
     label: 'My Businesses',
     href: '/dashboard/businesses',
     icon: <Store className="h-4 w-4" />,
+    roles: ['business_owner', 'admin'],
+  },
+  {
+    label: 'Analytics',
+    href: '/dashboard/analytics',
+    icon: <BarChart3 className="h-4 w-4" />,
     roles: ['business_owner', 'admin'],
   },
   {

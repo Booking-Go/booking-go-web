@@ -205,3 +205,114 @@ export interface ChatMessage {
   isRead: boolean;
   createdAt: string;
 }
+
+// ─── Analytics ──────────────────────────────────────────────────────────────
+
+export interface AnalyticsPeriod {
+  startDate: string;
+  endDate: string;
+  label: string;
+}
+
+export interface AnalyticsOverview {
+  totalBookings: number;
+  totalRevenue: number;
+  avgBookingValue: number;
+  occupancyRate: number;
+  cancellationRate: number;
+  completionRate: number;
+  revenueGrowth: number;
+  bookingGrowth: number;
+}
+
+export interface DailyRevenue {
+  date: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface TopService {
+  serviceId: string;
+  serviceName: string;
+  bookingCount: number;
+  revenue: number;
+}
+
+export interface BookingsByDay {
+  day: string;
+  count: number;
+}
+
+export interface CustomerMetrics {
+  totalCustomers: number;
+  newCustomers: number;
+  returningCustomers: number;
+}
+
+export interface ReviewDistribution {
+  5: number;
+  4: number;
+  3: number;
+  2: number;
+  1: number;
+}
+
+export interface ReviewStats {
+  totalReviews: number;
+  averageRating: number;
+  distribution: ReviewDistribution;
+}
+
+export interface RecentBooking {
+  id: string;
+  customerName: string;
+  serviceName: string;
+  status: string;
+  bookingDate: string;
+  totalPrice: number;
+  createdAt: string;
+}
+
+export interface SlotOccupancy {
+  totalSlots: number;
+  bookedSlots: number;
+  occupancyRate: number;
+}
+
+export interface BusinessAnalytics {
+  period: AnalyticsPeriod;
+  overview: AnalyticsOverview;
+  bookingsByStatus: Record<string, number>;
+  revenue: {
+    daily: DailyRevenue[];
+  };
+  topServices: TopService[];
+  peakHours: number[];
+  bookingsByDayOfWeek: BookingsByDay[];
+  customers: CustomerMetrics;
+  reviews: ReviewStats;
+  slots: SlotOccupancy;
+  recentBookings: RecentBooking[];
+}
+
+export interface MonthlyRevenue {
+  month: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface RevenueReport {
+  period: { startDate: string; endDate: string };
+  summary: {
+    totalBookings: number;
+    totalRevenue: number;
+    avgBookingValue: number;
+  };
+  daily: DailyRevenue[];
+  monthly: MonthlyRevenue[];
+  serviceBreakdown: {
+    serviceName: string;
+    bookingCount: number;
+    revenue: number;
+  }[];
+}
