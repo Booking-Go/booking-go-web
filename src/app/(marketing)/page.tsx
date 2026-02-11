@@ -1,52 +1,18 @@
 import Link from 'next/link';
 import {
   Calendar,
-  Clock,
   Users,
   TrendingUp,
   ArrowRight,
   Sparkles,
-  Shield,
   Zap,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { FeatureCard, StepCard, TestimonialCard, Highlight } from '@/components/marketing';
 
 export default function Home() {
   return (
-    <div className="min-h-screen">
-      {/* ── Navbar ── */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-xl backdrop-saturate-150">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
-            Booking<span className="text-muted-foreground">.go</span>
-          </Link>
-
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <a href="#features" className="transition-colors hover:text-foreground">
-              Features
-            </a>
-            <a href="#how-it-works" className="transition-colors hover:text-foreground">
-              How it works
-            </a>
-            <a href="#testimonials" className="transition-colors hover:text-foreground">
-              Testimonials
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button size="sm" className="rounded-full px-4" asChild>
-              <Link href="/register">Get Started</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <>
       {/* ── Hero ── */}
       <section className="relative overflow-hidden">
         {/* Subtle gradient background */}
@@ -243,142 +209,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ── CTA ── */}
-      <section className="border-t border-border/40 bg-muted/30">
-        <div className="container py-24 text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to simplify your bookings?
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-            Join thousands of businesses that save time and delight customers with Booking.go.
-          </p>
-          <div className="mt-8 flex justify-center gap-3">
-            <Button size="lg" className="h-12 rounded-full px-8 text-[15px] shadow-lg shadow-primary/20" asChild>
-              <Link href="/register">
-                Get started for free
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Free forever for up to 50 bookings/month. No credit card needed.
-          </p>
-        </div>
-      </section>
-
-      {/* ── Footer ── */}
-      <footer className="border-t border-border/40">
-        <div className="container py-12">
-          <div className="grid gap-8 md:grid-cols-4">
-            <div>
-              <p className="text-lg font-semibold tracking-tight">
-                Booking<span className="text-muted-foreground">.go</span>
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Modern booking management for small businesses.
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Product</p>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="transition-colors hover:text-foreground">Features</a></li>
-                <li><a href="#how-it-works" className="transition-colors hover:text-foreground">How it works</a></li>
-                <li><a href="#" className="transition-colors hover:text-foreground">Pricing</a></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Company</p>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="transition-colors hover:text-foreground">About</a></li>
-                <li><a href="#" className="transition-colors hover:text-foreground">Blog</a></li>
-                <li><a href="#" className="transition-colors hover:text-foreground">Careers</a></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Legal</p>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="transition-colors hover:text-foreground">Privacy</a></li>
-                <li><a href="#" className="transition-colors hover:text-foreground">Terms</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-12 border-t border-border/40 pt-6 text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Booking.go. All rights reserved.
-          </div>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }
 
-/* ── Components ── */
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="group rounded-2xl border border-border/60 bg-card p-6 transition-all duration-300 hover:border-border hover:shadow-sm">
-      <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.08] text-primary transition-colors group-hover:bg-primary/[0.12]">
-        {icon}
-      </div>
-      <h3 className="font-semibold tracking-tight">{title}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function StepCard({
-  step,
-  title,
-  description,
-}: {
-  step: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="text-center md:text-left">
-      <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted text-sm font-semibold text-muted-foreground">
-        {step}
-      </div>
-      <h3 className="font-semibold tracking-tight">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function Highlight({ text }: { text: string }) {
-  return (
-    <li className="flex items-center gap-3 text-sm">
-      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-      <span>{text}</span>
-    </li>
-  );
-}
-
-function TestimonialCard({
-  quote,
-  name,
-  role,
-}: {
-  quote: string;
-  name: string;
-  role: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-6">
-      <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{quote}&rdquo;</p>
-      <div className="mt-4 border-t border-border/40 pt-4">
-        <p className="text-sm font-medium">{name}</p>
-        <p className="text-xs text-muted-foreground">{role}</p>
-      </div>
-    </div>
-  );
-}

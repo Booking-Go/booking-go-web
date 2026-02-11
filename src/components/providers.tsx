@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -23,9 +23,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         {children}
         <Toaster
-          position="top-right"
+          position="top-center"
+          richColors
+          closeButton
           toastOptions={{
-            className: '!bg-card !text-card-foreground !border !border-border',
+            className: 'font-sans',
           }}
         />
       </QueryClientProvider>
