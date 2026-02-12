@@ -253,9 +253,13 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                   <div>
                     <h1 className="text-2xl font-bold tracking-tight">{business.name}</h1>
                     <div className="mt-1 flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">{business.category}</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {business.category}
+                      </Badge>
                       {business.isVerified && (
-                        <Badge variant="secondary" className="text-xs text-green-600">Verified</Badge>
+                        <Badge variant="secondary" className="text-xs text-green-600">
+                          Verified
+                        </Badge>
                       )}
                     </div>
                   </div>
@@ -275,8 +279,8 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                     <MapPin className="h-4 w-4 shrink-0" />
                     <span>
                       {business.addressLine1}
-                      {business.addressLine2 && `, ${business.addressLine2}`},{' '}
-                      {business.city}, {business.state} {business.zipCode}
+                      {business.addressLine2 && `, ${business.addressLine2}`}, {business.city},{' '}
+                      {business.state} {business.zipCode}
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5 text-muted-foreground">
@@ -347,9 +351,7 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                         >
                           <span>{day}</span>
                           <span className="text-muted-foreground">
-                            {h && !h.isClosed
-                              ? `${h.openTime} – ${h.closeTime}`
-                              : 'Closed'}
+                            {h && !h.isClosed ? `${h.openTime} – ${h.closeTime}` : 'Closed'}
                           </span>
                         </div>
                       );
@@ -424,9 +426,7 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                   <CardTitle className="text-lg">
                     Available Slots — {selectedService.name}
                   </CardTitle>
-                  <CardDescription>
-                    Pick a date and select a time slot to book.
-                  </CardDescription>
+                  <CardDescription>Pick a date and select a time slot to book.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {/* Date navigator */}
@@ -544,7 +544,10 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                 ) : (
                   <div className="space-y-4">
                     {reviews.map((review) => (
-                      <div key={review.id} className="space-y-2 rounded-lg border border-border/40 p-4">
+                      <div
+                        key={review.id}
+                        className="space-y-2 rounded-lg border border-border/40 p-4"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -631,12 +634,16 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
         footer={
           bookingSuccess ? (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setSelectedSlot(null); setBookingSuccess(false); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedSlot(null);
+                  setBookingSuccess(false);
+                }}
+              >
                 Book Another
               </Button>
-              <Button onClick={() => router.push('/dashboard/bookings')}>
-                View My Bookings
-              </Button>
+              <Button onClick={() => router.push('/dashboard/bookings')}>View My Bookings</Button>
             </div>
           ) : (
             <div className="flex justify-end gap-2">
@@ -657,7 +664,7 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
               <CheckCircle2 className="h-7 w-7" />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              You'll receive a notification once the business confirms your appointment.
+              You&apos;ll receive a notification once the business confirms your appointment.
             </p>
           </div>
         ) : selectedSlot ? (

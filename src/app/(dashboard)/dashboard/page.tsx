@@ -148,7 +148,7 @@ function BusinessOwnerDashboard() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<BusinessAnalytics | null>(null);
-  const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [loadingBiz, setLoadingBiz] = useState(true);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
@@ -182,18 +182,23 @@ function BusinessOwnerDashboard() {
       .finally(() => setLoadingAnalytics(false));
 
     const today = new Date().toISOString().split('T')[0];
+    const next30 = new Date();
+    next30.setDate(next30.getDate() + 30);
+    const endDateStr = next30.toISOString().split('T')[0];
 
-    bookingApi
-      .list({ limit: 50, startDate: today, endDate: today })
-      .then(({ bookings: b }) => {
-        setTodayBookings(b);
-        setPendingBookings(b.filter((bk) => bk.status === 'pending'));
-      })
-      .catch(() => {
-        setTodayBookings([]);
-        setPendingBookings([]);
-      })
-      .finally(() => setLoadingBookings(false));
+    // Fetch upcoming bookings (today + next 30 days, all statuses)
+    const upcomingPromise = bookingApi
+      .list({ limit: 50, startDate: today, endDate: endDateStr })
+      .then(({ bookings: b }) => setUpcomingBookings(b))
+      .catch(() => setUpcomingBookings([]));
+
+    // Fetch all pending bookings separately (any date)
+    const pendingPromise = bookingApi
+      .list({ limit: 50, status: 'pending' })
+      .then(({ bookings: b }) => setPendingBookings(b))
+      .catch(() => setPendingBookings([]));
+
+    Promise.all([upcomingPromise, pendingPromise]).finally(() => setLoadingBookings(false));
   }, [selectedBusinessId]);
 
   const selectedBusiness = useMemo(
@@ -261,6 +266,8 @@ function BusinessOwnerDashboard() {
           icon={<DollarSign className="h-5 w-5" />}
           title="Revenue"
           value={isLoading ? '...' : formatCurrency(analytics?.overview.totalRevenue ?? 0)}
+          href="/dashboard/analytics"
+          tooltip="Click to view detailed revenue analytics"
           description={
             analytics && analytics.overview.revenueGrowth !== 0 ? (
               <Tooltip>
@@ -295,31 +302,65 @@ function BusinessOwnerDashboard() {
           icon={<Calendar className="h-5 w-5" />}
           title="Total Bookings"
           value={isLoading ? '...' : String(analytics?.overview.totalBookings ?? 0)}
+          href="/dashboard/bookings"
+          tooltip="Click to view all bookings"
           description={
-            analytics && analytics.overview.bookingGrowth !== 0 ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 font-medium',
-                      analytics.overview.bookingGrowth > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    )}
-                  >
-                    <TrendingUp
-                      className={cn(
-                        'h-3 w-3',
-                        analytics.overview.bookingGrowth < 0 && 'rotate-180'
-                      )}
-                    />
-                    {Math.abs(analytics.overview.bookingGrowth).toFixed(1)}% vs prev period
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Compared to the previous 30-day period</p>
-                </TooltipContent>
-              </Tooltip>
+            analytics?.bookingsByStatus ? (
+              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                {(analytics.bookingsByStatus.pending ?? 0) > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="h-3 w-3" />
+                        {analytics.bookingsByStatus.pending} pending
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Bookings awaiting confirmation</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {(analytics.bookingsByStatus.confirmed ?? 0) > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {analytics.bookingsByStatus.confirmed} confirmed
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Upcoming confirmed bookings</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {(analytics.bookingsByStatus.completed ?? 0) > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {analytics.bookingsByStatus.completed} completed
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Successfully completed bookings</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {(analytics.bookingsByStatus.cancelled ?? 0) > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                        <XCircle className="h-3 w-3" />
+                        {analytics.bookingsByStatus.cancelled} cancelled
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Cancelled bookings in this period</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {analytics.overview.totalBookings === 0 && <span>Last 30 days</span>}
+              </span>
             ) : (
               'Last 30 days'
             )
@@ -329,12 +370,16 @@ function BusinessOwnerDashboard() {
           icon={<Star className="h-5 w-5" />}
           title="Avg Rating"
           value={isLoading ? '...' : (analytics?.reviews.averageRating ?? 0).toFixed(1)}
+          href="/dashboard/analytics"
+          tooltip="Average of all customer reviews"
           description={`${analytics?.reviews.totalReviews ?? 0} reviews`}
         />
         <StatCard
           icon={<Users className="h-5 w-5" />}
           title="Customers"
           value={isLoading ? '...' : String(analytics?.customers.totalCustomers ?? 0)}
+          href="/dashboard/bookings"
+          tooltip="Unique customers who booked in this period"
           description={`${analytics?.customers.newCustomers ?? 0} new this period`}
         />
       </div>
@@ -345,11 +390,11 @@ function BusinessOwnerDashboard() {
         <div className="rounded-2xl border border-border/60 bg-card">
           <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-semibold">Today&apos;s Bookings</h3>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold">Upcoming Bookings</h3>
             </div>
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              {loadingBookings ? '...' : todayBookings.length}
+              {loadingBookings ? '...' : upcomingBookings.length}
             </span>
           </div>
           <div className="divide-y divide-border/40">
@@ -357,16 +402,18 @@ function BusinessOwnerDashboard() {
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 Loading...
               </div>
-            ) : todayBookings.length === 0 ? (
+            ) : upcomingBookings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Calendar className="h-8 w-8 text-muted-foreground/40" />
-                <p className="mt-3 text-sm font-medium text-muted-foreground">No bookings today</p>
+                <p className="mt-3 text-sm font-medium text-muted-foreground">
+                  No upcoming bookings
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  Your schedule is clear for today.
+                  No bookings scheduled for the next 30 days.
                 </p>
               </div>
             ) : (
-              todayBookings.slice(0, 5).map((booking) => (
+              upcomingBookings.slice(0, 5).map((booking) => (
                 <Link
                   key={booking.id}
                   href={`/dashboard/bookings`}
@@ -375,7 +422,8 @@ function BusinessOwnerDashboard() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{booking.customerName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {booking.service?.name ?? 'Service'} &middot; {formatTime(booking.startTime)}
+                      {booking.service?.name ?? 'Service'} &middot;{' '}
+                      {formatDate(booking.bookingDate)}, {formatTime(booking.startTime)}
                     </p>
                   </div>
                   <div className="ml-4 flex items-center gap-3">
@@ -401,12 +449,12 @@ function BusinessOwnerDashboard() {
                 </Link>
               ))
             )}
-            {todayBookings.length > 5 && (
+            {upcomingBookings.length > 5 && (
               <Link
                 href="/dashboard/bookings"
                 className="flex items-center justify-center gap-1 py-3 text-xs font-medium text-primary hover:underline"
               >
-                View all {todayBookings.length} bookings
+                View all {upcomingBookings.length} upcoming
                 <ArrowRight className="h-3 w-3" />
               </Link>
             )}

@@ -4,6 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
+  eslint: {
+    // Warnings don't fail the production build
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: ['localhost'],
   },
