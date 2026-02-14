@@ -5,6 +5,7 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+!.env.production
 .git
 .gitignore
 *.md

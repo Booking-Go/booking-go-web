@@ -6,8 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { authApi } from '@/lib/auth';
-import { AxiosError } from 'axios';
+import { resetPassword } from '@/actions/auth';
 import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 interface ResetPasswordForm {
@@ -67,14 +66,16 @@ export default function ResetPasswordPage() {
   const onSubmit = async (formData: ResetPasswordForm) => {
     setIsLoading(true);
     try {
-      await authApi.resetPassword(token, formData.password);
+      const result = await resetPassword(token, formData.password);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       setSuccess(true);
     } catch (err: unknown) {
-      const axiosError = err instanceof AxiosError ? err : null;
-      const msg =
-        axiosError?.response?.data?.error?.message ||
-        'Failed to reset password. The link may have expired.';
-      toast.error(msg);
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to reset password. The link may have expired.'
+      );
     } finally {
       setIsLoading(false);
     }

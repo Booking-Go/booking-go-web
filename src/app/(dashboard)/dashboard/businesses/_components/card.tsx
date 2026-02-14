@@ -23,12 +23,18 @@ export function BusinessCard({ business }: BusinessCardProps) {
         </div>
         <div className="flex gap-2">
           {business.isActive ? (
-            <Badge variant="secondary" className="text-xs">Active</Badge>
+            <Badge variant="secondary" className="text-xs">
+              Active
+            </Badge>
           ) : (
-            <Badge variant="outline" className="text-xs text-amber-500">Inactive</Badge>
+            <Badge variant="outline" className="text-xs text-amber-500">
+              Inactive
+            </Badge>
           )}
           {business.isVerified && (
-            <Badge variant="secondary" className="text-xs text-green-600">Verified</Badge>
+            <Badge variant="secondary" className="text-xs text-green-600">
+              Verified
+            </Badge>
           )}
         </div>
       </div>

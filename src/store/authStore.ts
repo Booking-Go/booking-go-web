@@ -11,18 +11,17 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
-  login: (user: User, accessToken: string, refreshToken: string) => void;
+  login: (user: User, refreshToken: string) => void;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
 }
 
 /**
  * Set a simple session cookie so Next.js middleware can check auth status.
- * Also set accessToken cookie so server actions can authenticate against backend.
- * These are NOT HttpOnly — just client-accessible flags. Real security is via HTTPS.
+ * NOT HttpOnly — just a client-accessible flag for route protection.
+ * The accessToken cookie is now set by the backend as HttpOnly.
  */
 function setSessionCookie() {
   if (typeof document === 'undefined') return;
@@ -30,21 +29,10 @@ function setSessionCookie() {
   document.cookie = 'session=1; path=/; max-age=2592000; SameSite=Lax';
 }
 
-/**
- * Sets the `accessToken` cookie for server-side API authentication.
- * Short-lived — 15 minutes (same as JWT expiry).
- */
-function setAccessTokenCookie(token: string) {
-  if (typeof document === 'undefined') return;
-  // Short-lived — 15 minutes (same as JWT expiry). Will be refreshed by interceptor.
-  document.cookie = `accessToken=${token}; path=/; max-age=900; SameSite=Lax`;
-}
-
-/** Clears all session and auth cookies on logout. */
+/** Clears session cookie on logout. The HttpOnly accessToken cookie is cleared by the backend. */
 function clearSessionCookie() {
   if (typeof document === 'undefined') return;
   document.cookie = 'session=; path=/; max-age=0; SameSite=Lax';
-  document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
 }
 
 /** Zustand auth store with localStorage persistence and cookie-based session tracking. */
@@ -52,21 +40,17 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
-      login: (user, accessToken, refreshToken) => {
-        localStorage.setItem('accessToken', accessToken);
+      login: (user, refreshToken) => {
         localStorage.setItem('refreshToken', refreshToken);
         setSessionCookie();
-        setAccessTokenCookie(accessToken);
-        set({ user, accessToken, refreshToken, isAuthenticated: true });
+        set({ user, refreshToken, isAuthenticated: true });
       },
       logout: () => {
-        localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         clearSessionCookie();
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+        set({ user: null, refreshToken: null, isAuthenticated: false });
       },
       updateUser: (userData) =>
         set((state) => ({

@@ -2,14 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Calendar,
-  Clock,
-  Users,
-  IndianRupee,
-  Store,
-  ChevronRight,
-} from 'lucide-react';
+import { Calendar, Clock, Users, IndianRupee, Store, ChevronRight } from 'lucide-react';
 import type { Booking } from '@/types';
 
 interface BookingCardProps {
@@ -23,7 +16,11 @@ interface BookingCardProps {
 
 const statusConfig: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }
+  {
+    label: string;
+    variant: 'default' | 'secondary' | 'destructive' | 'outline';
+    className?: string;
+  }
 > = {
   pending: { label: 'Pending', variant: 'outline', className: 'text-amber-600 border-amber-300' },
   confirmed: { label: 'Confirmed', variant: 'secondary', className: 'text-blue-600' },
@@ -64,9 +61,7 @@ export function BookingCard({
           <Badge variant={status.variant} className={status.className}>
             {status.label}
           </Badge>
-          {booking.service && (
-            <span className="text-sm font-medium">{booking.service.name}</span>
-          )}
+          {booking.service && <span className="text-sm font-medium">{booking.service.name}</span>}
         </div>
 
         {/* Info row */}
@@ -96,7 +91,9 @@ export function BookingCard({
           {isOwner ? (
             <>
               <Users className="h-3 w-3" />
-              {booking.customerName || `${booking.customer?.firstName || ''} ${booking.customer?.lastName || ''}`.trim() || 'Customer'}
+              {booking.customerName ||
+                `${booking.customer?.firstName || ''} ${booking.customer?.lastName || ''}`.trim() ||
+                'Customer'}
             </>
           ) : (
             booking.business && (
@@ -116,7 +113,10 @@ export function BookingCard({
             variant="outline"
             size="sm"
             className="h-7 text-xs text-blue-600 hover:text-blue-700"
-            onClick={(e) => { e.stopPropagation(); onConfirm(booking); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirm(booking);
+            }}
           >
             Confirm
           </Button>
@@ -126,7 +126,10 @@ export function BookingCard({
             variant="outline"
             size="sm"
             className="h-7 text-xs text-green-600 hover:text-green-700"
-            onClick={(e) => { e.stopPropagation(); onComplete(booking); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onComplete(booking);
+            }}
           >
             Complete
           </Button>
@@ -136,17 +139,15 @@ export function BookingCard({
             variant="outline"
             size="sm"
             className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={(e) => { e.stopPropagation(); onCancel(booking); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel(booking);
+            }}
           >
             Cancel
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => onView(booking)}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(booking)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { authApi } from '@/lib/auth';
-import { AxiosError } from 'axios';
+import { forgotPassword } from '@/actions/auth';
 import { ArrowLeft, Mail } from 'lucide-react';
 
 interface ForgotPasswordForm {
@@ -25,13 +24,14 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (formData: ForgotPasswordForm) => {
     setIsLoading(true);
     try {
-      await authApi.forgotPassword(formData.email);
+      const result = await forgotPassword(formData.email);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       setSubmitted(true);
     } catch (err: unknown) {
-      const axiosError = err instanceof AxiosError ? err : null;
-      const msg =
-        axiosError?.response?.data?.error?.message || 'Something went wrong. Please try again.';
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }

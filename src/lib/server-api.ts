@@ -39,3 +39,40 @@ export async function serverFetch<T>(path: string, options: RequestInit = {}): P
 
   return body.data as T;
 }
+
+/**
+ * Server-side fetch for paginated endpoints that return `{ data, meta }` at the top level.
+ * Returns both the data array and pagination metadata.
+ */
+export async function serverFetchPaginated<T, M = PaginationMeta>(
+  path: string,
+  options: RequestInit = {}
+): Promise<{ data: T; meta: M }> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('accessToken')?.value;
+
+  const res = await fetch(`${BACKEND_URL}/api/v1${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+    cache: 'no-store',
+  });
+
+  const body = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(body?.error?.message || `Request failed with status ${res.status}`);
+  }
+
+  return { data: body.data as T, meta: body.meta as M };
+}
+
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

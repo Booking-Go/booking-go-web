@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { authApi } from '@/lib/auth';
-import { notificationApi } from '@/lib/notification';
-import { messageApi } from '@/lib/message';
+import { logout as logoutAction } from '@/actions/auth';
+import { getUnreadNotificationCount } from '@/actions/notification';
+import { getUnreadMessageCount } from '@/actions/message';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -120,12 +120,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const fetchUnread = useCallback(async () => {
     try {
-      const [notifCount, msgCount] = await Promise.all([
-        notificationApi.getUnreadCount(),
-        messageApi.getUnreadCount(),
+      const [notifResult, msgResult] = await Promise.all([
+        getUnreadNotificationCount(),
+        getUnreadMessageCount(),
       ]);
-      setUnreadCount(notifCount);
-      setUnreadMessages(msgCount);
+      if (notifResult.success) setUnreadCount(notifResult.data);
+      if (msgResult.success) setUnreadMessages(msgResult.data);
     } catch {
       // Non-critical — silently fail
     }
@@ -142,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleLogout = async () => {
     try {
-      await authApi.logout();
+      await logoutAction();
     } catch {
       // Even if the API call fails, log out locally
     } finally {

@@ -58,20 +58,14 @@ export function HolidaysEditor({
             />
           </div>
           <Button onClick={onAdd} disabled={saving || !newHoliday.date}>
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
 
         <Separator />
 
         {holidays.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No holidays scheduled.
-          </p>
+          <p className="py-4 text-center text-sm text-muted-foreground">No holidays scheduled.</p>
         ) : (
           <div className="space-y-2">
             {holidays.map((holiday) => (

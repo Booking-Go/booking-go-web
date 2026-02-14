@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { getToken, onMessage, type MessagePayload } from 'firebase/messaging';
 import { getFirebaseMessaging } from '@/lib/firebase';
-import { notificationApi } from '@/lib/notification';
+import { registerDeviceToken } from '@/actions/notification';
 import { useAuthStore } from '@/store/authStore';
 
 /** Push notification permission state. */
@@ -104,7 +104,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
       });
 
       if (token && token !== registeredTokenRef.current) {
-        await notificationApi.registerDeviceToken(token, 'web');
+        await registerDeviceToken(token, 'web');
         registeredTokenRef.current = token;
       }
     } catch (err) {

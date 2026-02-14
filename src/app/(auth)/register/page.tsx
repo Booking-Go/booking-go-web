@@ -6,13 +6,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { authApi, RegisterPayload } from '@/lib/auth';
+import { register as registerAction } from '@/actions/auth';
 import { useAuthStore } from '@/store/authStore';
 import { DEFAULT_REDIRECTS } from '@/lib/routes';
-import { AxiosError } from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 
-interface RegisterForm extends RegisterPayload {
+interface RegisterForm {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: 'customer' | 'business_owner';
   confirmPassword: string;
 }
 
@@ -36,9 +41,13 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       const { confirmPassword, ...payload } = formData;
-      const response = await authApi.register(payload);
-      const { user, accessToken, refreshToken } = response.data;
-      login(user, accessToken, refreshToken);
+      const result = await registerAction(payload);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      const { user, refreshToken } = result.data;
+      login(user, refreshToken);
       toast.success('Account created!');
 
       // Redirect to callbackUrl (e.g. back to the business page to finish booking)
@@ -47,10 +56,7 @@ export default function RegisterPage() {
         DEFAULT_REDIRECTS.fallback;
       router.push(callbackUrl === '/dashboard' ? defaultRedirect : callbackUrl);
     } catch (err: unknown) {
-      const axiosError = err instanceof AxiosError ? err : null;
-      const msg =
-        axiosError?.response?.data?.error?.message || 'Registration failed. Please try again.';
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

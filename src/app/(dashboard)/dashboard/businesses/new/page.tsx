@@ -2,14 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { businessApi, type CreateBusinessPayload } from '@/lib/business';
+import { createBusiness } from '@/actions/business';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { PageHeader } from '@/components/shared';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { PageHeader, CityCombobox } from '@/components/shared';
+import { STATES_AND_CITIES } from '@/lib/cities';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Store } from 'lucide-react';
 import Link from 'next/link';
@@ -35,6 +43,21 @@ export default function NewBusinessPage() {
     timezone: 'UTC',
   });
 
+  /** Resolved coordinates (from dataset or Nominatim geocoding). */
+  const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  /** When state changes, reset city and coords. */
+  const handleStateChange = (state: string) => {
+    setForm({ ...form, state, city: '' });
+    setCityCoords(null);
+  };
+
+  /** When city is selected or typed, store coords from combobox. */
+  const handleCitySelect = (cityName: string, coords: { lat: number; lng: number } | null) => {
+    setForm((prev) => ({ ...prev, city: cityName }));
+    setCityCoords(coords);
+  };
+
   // Auto-generate slug from business name
   const handleNameChange = (name: string) => {
     const slug = name
@@ -51,7 +74,7 @@ export default function NewBusinessPage() {
     setSaving(true);
 
     try {
-      const payload: CreateBusinessPayload = {
+      const payload: Record<string, unknown> = {
         name: form.name,
         slug: form.slug,
         category: form.category,
@@ -59,21 +82,25 @@ export default function NewBusinessPage() {
         city: form.city,
         state: form.state,
         zipCode: form.zipCode,
-        country: form.country,
+        country: form.country || 'India',
         phone: form.phone,
         email: form.email,
         timezone: form.timezone,
       };
+      if (cityCoords) {
+        payload.latitude = cityCoords.lat;
+        payload.longitude = cityCoords.lng;
+      }
       if (form.description) payload.description = form.description;
       if (form.addressLine2) payload.addressLine2 = form.addressLine2;
       if (form.website) payload.website = form.website;
 
-      const business = await businessApi.create(payload);
-      toast.success('Business created!');
-      router.push(`/dashboard/businesses/${business.id}`);
+      const result = await createBusiness(payload);
+      if (!result.success) throw new Error(result.error);
+      toast.success('Business created! Now add your services.');
+      router.push(`/dashboard/businesses/${result.data.id}?tab=services`);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to create business');
+      toast.error(err instanceof Error ? err.message : 'Failed to create business');
     } finally {
       setSaving(false);
     }
@@ -122,7 +149,14 @@ export default function NewBusinessPage() {
                 <Input
                   id="slug"
                   value={form.slug}
-                  onChange={set('slug')}
+                  onChange={(e) => {
+                    const slug = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9\s-]/g, '')
+                      .replace(/\s+/g, '-')
+                      .replace(/-+/g, '-');
+                    setForm({ ...form, slug });
+                  }}
                   placeholder="my-awesome-salon"
                   pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
                   required
@@ -228,21 +262,28 @@ export default function NewBusinessPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="city">City *</Label>
-                <Input
-                  id="city"
-                  value={form.city}
-                  onChange={set('city')}
-                  required
-                />
+                <Label>State *</Label>
+                <Select value={form.state} onValueChange={handleStateChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATES_AND_CITIES.map((s) => (
+                      <SelectItem key={s.name} value={s.name}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State *</Label>
-                <Input
-                  id="state"
-                  value={form.state}
-                  onChange={set('state')}
-                  required
+                <Label>City *</Label>
+                <CityCombobox
+                  state={form.state}
+                  value={form.city}
+                  onSelect={handleCitySelect}
+                  disabled={!form.state}
+                  placeholder={form.state ? 'Type or select a city' : 'Select state first'}
                 />
               </div>
             </div>
@@ -250,21 +291,11 @@ export default function NewBusinessPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="zipCode">Zip Code *</Label>
-                <Input
-                  id="zipCode"
-                  value={form.zipCode}
-                  onChange={set('zipCode')}
-                  required
-                />
+                <Input id="zipCode" value={form.zipCode} onChange={set('zipCode')} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="country">Country *</Label>
-                <Input
-                  id="country"
-                  value={form.country}
-                  onChange={set('country')}
-                  required
-                />
+                <Label>Country</Label>
+                <Input value={form.country || 'India'} disabled className="bg-muted" />
               </div>
             </div>
 

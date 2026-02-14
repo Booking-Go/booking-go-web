@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { messageApi } from '@/lib/message';
+import {
+  getConversations,
+  getMessages,
+  markConversationAsRead,
+  sendMessage,
+} from '@/actions/message';
 import { useSocket } from '@/lib/use-socket';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +23,8 @@ import type { Conversation, ChatMessage, PaginationMeta } from '@/types';
 
 export default function MessagesPage() {
   const { user } = useAuthStore();
+  const searchParams = useSearchParams();
+  const openConversationId = searchParams.get('open');
   const {
     isConnected,
     joinConversation,
@@ -51,12 +59,15 @@ export default function MessagesPage() {
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true);
     try {
-      const result = await messageApi.listConversations({ page: convPage, limit: 20 });
-      setConversations(result.conversations);
-      setConvMeta(result.meta);
+      const result = await getConversations({ page: convPage, limit: 20 });
+      if (result.success) {
+        setConversations(result.data.conversations);
+        setConvMeta(result.data.meta);
+      } else {
+        toast.error(result.error);
+      }
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to load conversations');
+      toast.error(err instanceof Error ? err.message : 'Failed to load conversations');
     } finally {
       setLoadingConversations(false);
     }
@@ -71,18 +82,19 @@ export default function MessagesPage() {
     if (page === 1) setLoadingMessages(true);
     else setLoadingMore(true);
     try {
-      const result = await messageApi.getMessages(conversationId, { page, limit: 50 });
-      if (page === 1) {
-        // Reverse so oldest appears first
-        setMessages(result.messages.reverse());
+      const result = await getMessages(conversationId, { page, limit: 50 });
+      if (result.success) {
+        if (page === 1) {
+          setMessages(result.data.messages.reverse());
+        } else {
+          setMessages((prev) => [...result.data.messages.reverse(), ...prev]);
+        }
+        setMsgMeta(result.data.meta);
       } else {
-        // Prepend older messages
-        setMessages((prev) => [...result.messages.reverse(), ...prev]);
+        toast.error(result.error);
       }
-      setMsgMeta(result.meta);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to load messages');
+      toast.error(err instanceof Error ? err.message : 'Failed to load messages');
     } finally {
       setLoadingMessages(false);
       setLoadingMore(false);
@@ -108,13 +120,30 @@ export default function MessagesPage() {
       loadMessages(conv.id);
 
       // Mark as read
-      messageApi.markAsRead(conv.id).catch(() => {});
+      markConversationAsRead(conv.id).catch(() => {});
       setConversations((prev) =>
         prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
       );
     },
     [activeConversation, joinConversation, leaveConversation, loadMessages]
   );
+
+  // ─── Auto-open conversation from query param ────────────────────────
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (
+      openConversationId &&
+      !autoOpenedRef.current &&
+      conversations.length > 0 &&
+      !loadingConversations
+    ) {
+      const target = conversations.find((c) => c.id === openConversationId);
+      if (target) {
+        openConversation(target);
+        autoOpenedRef.current = true;
+      }
+    }
+  }, [openConversationId, conversations, loadingConversations, openConversation]);
 
   // ─── Real-time events ──────────────────────────────────────────────
   useEffect(() => {
@@ -129,7 +158,7 @@ export default function MessagesPage() {
         });
         // Auto mark as read if it's from the other party
         if (message.senderId !== user?.id) {
-          messageApi.markAsRead(activeConversation.id).catch(() => {});
+          markConversationAsRead(activeConversation.id).catch(() => {});
         }
       }
     });
@@ -198,13 +227,17 @@ export default function MessagesPage() {
           });
         } else if (!response.success) {
           // Fallback to REST
-          messageApi
-            .sendMessage(activeConversation.id, content)
-            .then((msg) => {
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === msg.id)) return prev;
-                return [...prev, msg];
-              });
+          sendMessage(activeConversation.id, content)
+            .then((result) => {
+              if (result.success) {
+                setMessages((prev) => {
+                  if (prev.some((m) => m.id === result.data.id)) return prev;
+                  return [...prev, result.data];
+                });
+              } else {
+                toast.error('Failed to send message');
+                setNewMessage(content);
+              }
             })
             .catch(() => {
               toast.error('Failed to send message');
@@ -215,11 +248,16 @@ export default function MessagesPage() {
       });
     } else {
       try {
-        const msg = await messageApi.sendMessage(activeConversation.id, content);
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
+        const result = await sendMessage(activeConversation.id, content);
+        if (result.success) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === result.data.id)) return prev;
+            return [...prev, result.data];
+          });
+        } else {
+          toast.error('Failed to send message');
+          setNewMessage(content);
+        }
       } catch {
         toast.error('Failed to send message');
         setNewMessage(content);

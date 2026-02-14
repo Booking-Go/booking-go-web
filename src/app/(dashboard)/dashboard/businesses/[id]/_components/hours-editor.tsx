@@ -3,13 +3,19 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Save, Clock } from 'lucide-react';
-import type { BusinessHoursPayload } from '@/lib/business';
+
+interface BusinessHoursFormItem {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isClosed: boolean;
+}
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 interface HoursEditorProps {
-  hoursForm: BusinessHoursPayload[];
-  onChange: (dayIndex: number, field: keyof BusinessHoursPayload, value: string | boolean) => void;
+  hoursForm: BusinessHoursFormItem[];
+  onChange: (dayIndex: number, field: keyof BusinessHoursFormItem, value: string | boolean) => void;
   onSave: () => void;
   saving: boolean;
 }
@@ -32,7 +38,10 @@ export function HoursEditor({ hoursForm, onChange, onSave, saving }: HoursEditor
         {DAYS.map((day, i) => {
           const h = hoursForm.find((hf) => hf.dayOfWeek === i)!;
           return (
-            <div key={day} className="flex items-center gap-3 rounded-lg border border-border/40 p-3">
+            <div
+              key={day}
+              className="flex items-center gap-3 rounded-lg border border-border/40 p-3"
+            >
               <div className="w-24 text-sm font-medium">{day}</div>
               <label className="flex items-center gap-2 text-sm">
                 <input

@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { serviceApi, type CreateServicePayload, type UpdateServicePayload } from '@/lib/service';
+import {
+  getServicesByBusiness,
+  createService,
+  updateService,
+  deleteService,
+  type CreateServicePayload,
+  type UpdateServicePayload,
+} from '@/actions/service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +17,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Modal, ConfirmDialog } from '@/components/shared';
 import { toast } from 'sonner';
-import { Loader2, Plus, Pencil, Trash2, Clock, IndianRupee, Users, PackageOpen } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  Clock,
+  IndianRupee,
+  Users,
+  PackageOpen,
+} from 'lucide-react';
 import type { Service } from '@/types';
 
 interface ServicesEditorProps {
@@ -46,11 +62,13 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    serviceApi
-      .getByBusinessId(businessId)
-      .then(setServices)
+    getServicesByBusiness(businessId)
+      .then((result) => {
+        if (result.success) setServices(result.data);
+        else toast.error(result.error);
+      })
       .catch((err) => {
-        toast.error(err?.response?.data?.error?.message || 'Failed to load services');
+        toast.error(err instanceof Error ? err.message : 'Failed to load services');
       })
       .finally(() => setLoading(false));
   }, [businessId]);
@@ -91,10 +109,12 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
         // Build partial payload — only send changed fields
         const payload: UpdateServicePayload = {};
         if (form.name !== editingService.name) payload.name = form.name;
-        if (form.description !== (editingService.description || '')) payload.description = form.description;
+        if (form.description !== (editingService.description || ''))
+          payload.description = form.description;
         if (form.duration !== editingService.duration) payload.duration = form.duration;
         if (form.price !== editingService.price) payload.price = form.price;
-        if (form.depositAmount !== editingService.depositAmount) payload.depositAmount = form.depositAmount;
+        if (form.depositAmount !== editingService.depositAmount)
+          payload.depositAmount = form.depositAmount;
         if (form.maxCapacity !== editingService.maxCapacity) payload.maxCapacity = form.maxCapacity;
         if (form.bufferTime !== editingService.bufferTime) payload.bufferTime = form.bufferTime;
 
@@ -104,18 +124,19 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
           return;
         }
 
-        const updated = await serviceApi.update(businessId, editingService.id, payload);
-        setServices((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+        const result = await updateService(businessId, editingService.id, payload);
+        if (!result.success) throw new Error(result.error);
+        setServices((prev) => prev.map((s) => (s.id === result.data.id ? result.data : s)));
         toast.success('Service updated');
       } else {
-        const created = await serviceApi.create(businessId, form);
-        setServices((prev) => [...prev, created]);
+        const result = await createService(businessId, form);
+        if (!result.success) throw new Error(result.error);
+        setServices((prev) => [...prev, result.data]);
         toast.success('Service created');
       }
       setShowModal(false);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to save service');
+      toast.error(err instanceof Error ? err.message : 'Failed to save service');
     } finally {
       setSaving(false);
     }
@@ -125,26 +146,28 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await serviceApi.delete(businessId, deleteTarget.id);
+      const result = await deleteService(businessId, deleteTarget.id);
+      if (!result.success) throw new Error(result.error);
       setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       toast.success('Service deleted');
       setDeleteTarget(null);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to delete service');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete service');
       setDeleting(false);
       setDeleteTarget(null);
     }
   };
 
-  const set = (field: keyof CreateServicePayload) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const value = ['duration', 'price', 'depositAmount', 'maxCapacity', 'bufferTime'].includes(field)
-      ? Number(e.target.value)
-      : e.target.value;
-    setForm({ ...form, [field]: value });
-  };
+  const set =
+    (field: keyof CreateServicePayload) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = ['duration', 'price', 'depositAmount', 'maxCapacity', 'bufferTime'].includes(
+        field
+      )
+        ? Number(e.target.value)
+        : e.target.value;
+      setForm({ ...form, [field]: value });
+    };
 
   const formatDuration = (mins: number) => {
     if (mins < 60) return `${mins}min`;
@@ -229,9 +252,7 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
                           {service.maxCapacity} max
                         </span>
                       )}
-                      {service.bufferTime > 0 && (
-                        <span>+{service.bufferTime}min buffer</span>
-                      )}
+                      {service.bufferTime > 0 && <span>+{service.bufferTime}min buffer</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 pl-4">
@@ -259,7 +280,9 @@ export function ServicesEditor({ businessId }: ServicesEditorProps) {
         open={showModal}
         onOpenChange={setShowModal}
         title={editingService ? 'Edit Service' : 'New Service'}
-        description={editingService ? 'Update service details.' : 'Add a new service to your business.'}
+        description={
+          editingService ? 'Update service details.' : 'Add a new service to your business.'
+        }
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowModal(false)}>

@@ -6,15 +6,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { authApi, LoginPayload } from '@/lib/auth';
+import { login as loginAction } from '@/actions/auth';
 import { useAuthStore } from '@/store/authStore';
 import { DEFAULT_REDIRECTS } from '@/lib/routes';
-import { AxiosError } from 'axios';
 import { Eye, EyeOff, User, Briefcase } from 'lucide-react';
 
 const DEV_ACCOUNTS = [
-  { label: 'Customer', email: 'razashahid532@gmail.com', password: 'Hello@123', icon: User },
-  { label: 'Business', email: 'cusat.shahid@gmail.com', password: 'Hello@123', icon: Briefcase },
+  { label: 'Customer', email: 'booking@co.com', password: 'Hello@123', icon: User },
+  { label: 'Customer 2', email: 'booking@co.in', password: 'Hello@123', icon: User },
+  { label: 'Business', email: 'booking@go.com', password: 'Hello@123', icon: Briefcase },
 ] as const;
 
 export default function LoginPage() {
@@ -29,19 +29,23 @@ export default function LoginPage() {
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm<LoginPayload>();
+  } = useForm<{ email: string; password: string }>();
 
   const fillDevAccount = (account: (typeof DEV_ACCOUNTS)[number]) => {
     setValue('email', account.email);
     setValue('password', account.password);
   };
 
-  const onSubmit = async (formData: LoginPayload) => {
+  const onSubmit = async (formData: { email: string; password: string }) => {
     setIsLoading(true);
     try {
-      const response = await authApi.login(formData);
-      const { user, accessToken, refreshToken } = response.data;
-      login(user, accessToken, refreshToken);
+      const result = await loginAction(formData);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      const { user, refreshToken } = result.data;
+      login(user, refreshToken);
       toast.success('Welcome back!');
 
       // Customers land on explore (browse businesses), owners go to dashboard
@@ -50,9 +54,7 @@ export default function LoginPage() {
         DEFAULT_REDIRECTS.fallback;
       router.push(callbackUrl === '/dashboard' ? defaultRedirect : callbackUrl);
     } catch (err: unknown) {
-      const axiosError = err instanceof AxiosError ? err : null;
-      const msg = axiosError?.response?.data?.error?.message || 'Login failed. Please try again.';
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -139,29 +141,27 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {/* Dev-only quick fill — remove before production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
-          <p className="mb-2 text-center text-xs font-medium text-amber-600 dark:text-amber-400">
-            Dev Quick Login
-          </p>
-          <div className="flex gap-2">
-            {DEV_ACCOUNTS.map((account) => (
-              <Button
-                key={account.label}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs"
-                onClick={() => fillDevAccount(account)}
-              >
-                <account.icon className="mr-1.5 h-3.5 w-3.5" />
-                {account.label}
-              </Button>
-            ))}
-          </div>
+      {/* Quick fill for demo accounts */}
+      <div className="rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
+        <p className="mb-2 text-center text-xs font-medium text-amber-600 dark:text-amber-400">
+          Quick Login
+        </p>
+        <div className="flex gap-2">
+          {DEV_ACCOUNTS.map((account) => (
+            <Button
+              key={account.label}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => fillDevAccount(account)}
+            >
+              <account.icon className="mr-1.5 h-3.5 w-3.5" />
+              {account.label}
+            </Button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsApi } from '@/lib/analytics';
-import { businessApi } from '@/lib/business';
+import { getDashboardAnalytics, getRevenueReport } from '@/actions/analytics';
+import { getMyBusinesses } from '@/actions/business';
 import { PageHeader, StatCard } from '@/components/shared';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,11 +90,14 @@ export default function AnalyticsPage() {
 
   // Fetch owner's businesses
   useEffect(() => {
-    businessApi
-      .getMyBusinesses()
-      .then((biz) => {
-        setBusinesses(biz);
-        if (biz.length > 0) setSelectedBusiness(biz[0].id);
+    getMyBusinesses()
+      .then((result) => {
+        if (result.success) {
+          setBusinesses(result.data);
+          if (result.data.length > 0) setSelectedBusiness(result.data[0].id);
+        } else {
+          toast.error('Failed to load businesses');
+        }
       })
       .catch(() => toast.error('Failed to load businesses'))
       .finally(() => setLoadingBusinesses(false));
@@ -105,8 +108,9 @@ export default function AnalyticsPage() {
     if (!selectedBusiness) return;
     setLoading(true);
     try {
-      const data = await analyticsApi.getDashboard(selectedBusiness, period);
-      setAnalytics(data);
+      const result = await getDashboardAnalytics(selectedBusiness, period);
+      if (result.success) setAnalytics(result.data);
+      else toast.error('Failed to load analytics');
     } catch {
       toast.error('Failed to load analytics');
     } finally {
@@ -123,11 +127,13 @@ export default function AnalyticsPage() {
     if (!analytics || !selectedBusiness) return;
     setExporting(true);
     try {
-      const report = await analyticsApi.getRevenueReport(
+      const result = await getRevenueReport(
         selectedBusiness,
         analytics.period.startDate,
-        analytics.period.endDate,
+        analytics.period.endDate
       );
+      if (!result.success) throw new Error(result.error);
+      const report = result.data;
       const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -183,18 +189,29 @@ export default function AnalyticsPage() {
 
   // Peak hours chart data
   const peakHoursData = analytics
-    ? analytics.peakHours.map((count, hour) => ({
-        hour: `${hour.toString().padStart(2, '0')}:00`,
-        bookings: count,
-      })).filter((_, i) => i >= 6 && i <= 22) // Show only business hours 6am-10pm
+    ? analytics.peakHours
+        .map((count, hour) => ({
+          hour: `${hour.toString().padStart(2, '0')}:00`,
+          bookings: count,
+        }))
+        .filter((_, i) => i >= 6 && i <= 22) // Show only business hours 6am-10pm
     : [];
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <PageHeader title="Analytics" description="Track revenue, bookings, and performance metrics">
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || !analytics}>
-          {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || !analytics}
+        >
+          {exporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
           Export Report
         </Button>
       </PageHeader>
@@ -240,17 +257,13 @@ export default function AnalyticsPage() {
               icon={<DollarSign className="h-5 w-5" />}
               title="Total Revenue"
               value={formatCurrency(overview!.totalRevenue)}
-              description={
-                <GrowthBadge value={overview!.revenueGrowth} label="vs prev period" />
-              }
+              description={<GrowthBadge value={overview!.revenueGrowth} label="vs prev period" />}
             />
             <StatCard
               icon={<CalendarCheck className="h-5 w-5" />}
               title="Total Bookings"
               value={String(overview!.totalBookings)}
-              description={
-                <GrowthBadge value={overview!.bookingGrowth} label="vs prev period" />
-              }
+              description={<GrowthBadge value={overview!.bookingGrowth} label="vs prev period" />}
             />
             <StatCard
               icon={<DollarSign className="h-5 w-5" />}
@@ -347,14 +360,8 @@ export default function AnalyticsPage() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value) => [`${value} bookings`, String(value)]}
-                    />
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
+                    <Tooltip formatter={(value) => [`${value} bookings`, String(value)]} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -393,7 +400,11 @@ export default function AnalyticsPage() {
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
-                        const d = payload[0].payload as { serviceName: string; revenue: number; bookingCount: number };
+                        const d = payload[0].payload as {
+                          serviceName: string;
+                          revenue: number;
+                          bookingCount: number;
+                        };
                         return (
                           <div className="rounded-lg border bg-card p-3 shadow-md">
                             <p className="text-sm font-medium">{d.serviceName}</p>
@@ -434,9 +445,7 @@ export default function AnalyticsPage() {
                       height={50}
                     />
                     <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
-                    <Tooltip
-                      formatter={(value) => [`${value} bookings`, 'Bookings']}
-                    />
+                    <Tooltip formatter={(value) => [`${value} bookings`, 'Bookings']} />
                     <Bar dataKey="bookings" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -491,7 +500,7 @@ export default function AnalyticsPage() {
                           width: `${Math.round(
                             (analytics.customers.returningCustomers /
                               analytics.customers.totalCustomers) *
-                              100,
+                              100
                           )}%`,
                         }}
                       />
@@ -500,7 +509,7 @@ export default function AnalyticsPage() {
                       {Math.round(
                         (analytics.customers.returningCustomers /
                           analytics.customers.totalCustomers) *
-                          100,
+                          100
                       )}
                       %
                     </div>
@@ -521,7 +530,10 @@ export default function AnalyticsPage() {
               </div>
               <div className="space-y-2">
                 {[5, 4, 3, 2, 1].map((star) => {
-                  const count = analytics.reviews.distribution[star as keyof typeof analytics.reviews.distribution];
+                  const count =
+                    analytics.reviews.distribution[
+                      star as keyof typeof analytics.reviews.distribution
+                    ];
                   const pct =
                     analytics.reviews.totalReviews > 0
                       ? Math.round((count / analytics.reviews.totalReviews) * 100)
@@ -600,7 +612,11 @@ function GrowthBadge({ value, label }: { value: number; label: string }) {
       ) : (
         <TrendingDown className="h-3 w-3 text-red-500" />
       )}
-      <span className={isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+      <span
+        className={
+          isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+        }
+      >
         {isPositive ? '+' : ''}
         {value}%
       </span>
@@ -609,7 +625,15 @@ function GrowthBadge({ value, label }: { value: number; label: string }) {
   );
 }
 
-function MetricRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function MetricRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -631,7 +655,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${variants[status] ?? variants.pending}`}>
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${variants[status] ?? variants.pending}`}
+    >
       {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
     </span>
   );

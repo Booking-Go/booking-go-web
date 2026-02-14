@@ -66,9 +66,6 @@ export const useSocket = () => {
   useEffect(() => {
     if (!user) return;
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (!token) return;
-
     let cancelled = false;
 
     const connect = async () => {
@@ -76,7 +73,7 @@ export const useSocket = () => {
       if (cancelled || !socketUrl) return;
 
       const socket: TypedSocket = io(socketUrl, {
-        auth: { token },
+        withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,

@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { slotApi, type BulkCreateSlotsPayload } from '@/lib/slot';
-import { serviceApi } from '@/lib/service';
+import {
+  getSlots,
+  bulkCreateSlots,
+  updateSlot,
+  deleteSlot,
+  type BulkCreateSlotsPayload,
+} from '@/actions/slot';
+import { getServicesByBusiness } from '@/actions/service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,9 +89,10 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
 
   // Load services once
   useEffect(() => {
-    serviceApi
-      .getByBusinessId(businessId)
-      .then(setServices)
+    getServicesByBusiness(businessId)
+      .then((result) => {
+        if (result.success) setServices(result.data);
+      })
       .catch(() => {});
   }, [businessId]);
 
@@ -93,15 +100,15 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
   const loadSlots = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await slotApi.list({
+      const result = await getSlots({
         businessId,
         date: selectedDate,
         limit: 100,
       });
-      setSlots(result.slots);
+      if (!result.success) throw new Error(result.error);
+      setSlots(result.data.slots);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to load slots');
+      toast.error(err instanceof Error ? err.message : 'Failed to load slots');
     } finally {
       setLoading(false);
     }
@@ -166,13 +173,13 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
         price: bulkForm.price,
       };
 
-      const result = await slotApi.bulkCreate(payload);
-      toast.success(result.message);
+      const result = await bulkCreateSlots(payload);
+      if (!result.success) throw new Error(result.error);
+      toast.success(result.data.message);
       setShowBulkModal(false);
       loadSlots(); // refresh
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to generate slots');
+      toast.error(err instanceof Error ? err.message : 'Failed to generate slots');
     } finally {
       setGenerating(false);
     }
@@ -192,12 +199,12 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
   const handleToggleAvailability = async (slot: Slot) => {
     setToggling(slot.id);
     try {
-      const updated = await slotApi.update(slot.id, { isAvailable: !slot.isAvailable });
-      setSlots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-      toast.success(updated.isAvailable ? 'Slot opened' : 'Slot blocked');
+      const result = await updateSlot(slot.id, { isAvailable: !slot.isAvailable });
+      if (!result.success) throw new Error(result.error);
+      setSlots((prev) => prev.map((s) => (s.id === result.data.id ? result.data : s)));
+      toast.success(result.data.isAvailable ? 'Slot opened' : 'Slot blocked');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to update slot');
+      toast.error(err instanceof Error ? err.message : 'Failed to update slot');
     } finally {
       setToggling(null);
     }
@@ -209,13 +216,13 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await slotApi.delete(deleteTarget.id);
+      const result = await deleteSlot(deleteTarget.id);
+      if (!result.success) throw new Error(result.error);
       setSlots((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       toast.success('Slot deleted');
       setDeleteTarget(null);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error?.response?.data?.error?.message || 'Failed to delete slot');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete slot');
     } finally {
       setDeleting(false);
     }
@@ -287,7 +294,12 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">{formatDateLabel(selectedDate)}</span>
                   {!isToday(selectedDate) && (
-                    <Button variant="outline" size="sm" className="ml-2 h-7 text-xs" onClick={goToToday}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-2 h-7 text-xs"
+                      onClick={goToToday}
+                    >
                       Today
                     </Button>
                   )}
@@ -348,7 +360,9 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
                               </Badge>
                             )
                           ) : (
-                            <Badge variant="destructive" className="text-xs">Blocked</Badge>
+                            <Badge variant="destructive" className="text-xs">
+                              Blocked
+                            </Badge>
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -391,7 +405,9 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
                           onClick={() => setDeleteTarget(slot)}
                           disabled={slot.bookedCount > 0}
                           className="text-destructive hover:text-destructive"
-                          title={slot.bookedCount > 0 ? 'Cannot delete — has bookings' : 'Delete slot'}
+                          title={
+                            slot.bookedCount > 0 ? 'Cannot delete — has bookings' : 'Delete slot'
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -404,8 +420,12 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
               {/* Summary footer */}
               {!loading && slots.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-                  <span>{slots.length} slot{slots.length !== 1 ? 's' : ''}</span>
-                  <span>{slots.filter((s) => s.isAvailable && s.bookedCount === 0).length} available</span>
+                  <span>
+                    {slots.length} slot{slots.length !== 1 ? 's' : ''}
+                  </span>
+                  <span>
+                    {slots.filter((s) => s.isAvailable && s.bookedCount === 0).length} available
+                  </span>
                   <span>{slots.filter((s) => s.bookedCount > 0).length} partially booked</span>
                   <span>{slots.filter((s) => !s.isAvailable).length} blocked</span>
                 </div>
@@ -523,8 +543,8 @@ export function SlotsEditor({ businessId }: SlotsEditorProps) {
 
           {/* Info note */}
           <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-            Slots will be auto-generated based on your business hours and the selected service&apos;s duration
-            + buffer time. Holidays are automatically skipped.
+            Slots will be auto-generated based on your business hours and the selected
+            service&apos;s duration + buffer time. Holidays are automatically skipped.
           </p>
         </div>
       </Modal>
