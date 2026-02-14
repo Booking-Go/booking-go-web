@@ -17,11 +17,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { NotificationPopover, MessagePopover } from '@/components/shared';
 import { Logo } from '@/components/shared';
 import { PushNotificationBanner } from '@/components/shared/push-notification-banner';
 import { toast } from 'sonner';
@@ -35,7 +42,9 @@ import {
   Bell,
   MessageSquare,
   BarChart3,
+  Compass,
 } from 'lucide-react';
+// Bell & MessageSquare still used in sidebar navItems
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
@@ -117,6 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const fetchUnread = useCallback(async () => {
     try {
@@ -158,6 +168,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null;
   }
 
+  const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || 'U';
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen bg-background">
@@ -174,7 +186,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-4 pt-8">
                   <div onClick={() => setMobileOpen(false)}>
-                    <Logo href="/dashboard" />
+                    <Logo href="/explore" />
                   </div>
                   <Separator className="my-4" />
                   <div onClick={() => setMobileOpen(false)}>
@@ -183,90 +195,64 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </SheetContent>
               </Sheet>
 
-              <Logo href="/dashboard" />
+              <Logo href="/explore" />
             </div>
 
             <div className="flex items-center gap-3">
-              <Tooltip>
-                <TooltipTrigger asChild>
+              <MessagePopover unreadCount={unreadMessages} onCountChange={fetchUnread} />
+              <NotificationPopover unreadCount={unreadCount} onCountChange={fetchUnread} />
+              <ThemeToggle />
+
+              {/* User avatar menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative"
-                    aria-label="Messages"
-                    onClick={() => router.push('/dashboard/messages')}
+                    className="relative h-8 w-8 rounded-full bg-primary/10 text-xs font-semibold text-primary hover:bg-primary/20"
+                    aria-label="User menu"
                   >
-                    <MessageSquare className="h-4 w-4" />
-                    {unreadMessages > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                        {unreadMessages > 99 ? '99+' : unreadMessages}
-                      </span>
-                    )}
+                    {initials}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    {unreadMessages > 0
-                      ? `${unreadMessages} unread message${unreadMessages > 1 ? 's' : ''}`
-                      : 'Messages'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative"
-                    aria-label="Notifications"
-                    onClick={() => router.push('/dashboard/notifications')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5">
+                    <div className="text-sm font-medium">
+                      {user.firstName} {user.lastName}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {user.role === 'business_owner'
+                        ? 'Business Owner'
+                        : user.role === 'admin'
+                          ? 'Admin'
+                          : 'Customer'}
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/explore" className="cursor-pointer gap-2">
+                      <Compass className="h-4 w-4" />
+                      Explore
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/profile" className="cursor-pointer gap-2">
+                      <User className="h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowLogoutDialog(true)}
+                    className="cursor-pointer gap-2 text-destructive focus:text-destructive"
                   >
-                    <Bell className="h-4 w-4" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    {unreadCount > 0
-                      ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                      : 'Notifications'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <ThemeToggle />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Toggle theme</p>
-                </TooltipContent>
-              </Tooltip>
-              <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 sm:flex">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm font-medium">
-                  {user.firstName} {user.lastName}
-                </span>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                  {user.role === 'business_owner'
-                    ? 'Business'
-                    : user.role === 'admin'
-                      ? 'Admin'
-                      : 'Customer'}
-                </span>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1.5">
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Sign out</span>
-                  </Button>
-                </AlertDialogTrigger>
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Sign out?</AlertDialogTitle>

@@ -142,7 +142,15 @@ export interface Booking {
   createdAt: string;
   updatedAt: string;
   // Joined objects (from API)
-  business?: { id: string; name: string; slug: string };
+  business?: {
+    id: string;
+    name: string;
+    slug: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
   service?: { id: string; name: string; duration: number };
   customer?: { firstName: string; lastName: string };
 }

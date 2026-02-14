@@ -13,7 +13,7 @@ const sizeClasses = {
   lg: 'text-xl',
 };
 
-export function Logo({ href = '/', className, size = 'md' }: LogoProps) {
+export function Logo({ href = '/explore', className, size = 'md' }: LogoProps) {
   const content = (
     <span className={cn('font-semibold tracking-tight', sizeClasses[size], className)}>
       Booking<span className="text-muted-foreground">.go</span>

@@ -39,6 +39,7 @@ export function ExploreGrid() {
   const [businesses, setBusinesses] = useState<(Business & { distanceKm?: number })[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [page, setPage] = useState(1);
 
   // Filters
@@ -54,6 +55,7 @@ export function ExploreGrid() {
   /** Fetch businesses — nearby if location available, otherwise fallback to regular list. */
   const loadBusinesses = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       if (geo.coords) {
         const result = await getNearbyBusinesses({
@@ -106,8 +108,11 @@ export function ExploreGrid() {
           setMeta(result.data.meta);
         }
       }
-    } catch {
-      // Silently fall back — don't toast errors on a public browse page
+    } catch (err: unknown) {
+      console.error('[ExploreGrid] Failed to load businesses:', err);
+      setLoadError(true);
+      setBusinesses([]);
+      setMeta(null);
     } finally {
       setLoading(false);
     }
@@ -430,6 +435,12 @@ export function ExploreGrid() {
 
         {loading ? (
           <Loading />
+        ) : loadError ? (
+          <EmptyState
+            icon={<Store className="h-12 w-12" />}
+            title="Something went wrong"
+            description="We couldn't load businesses right now. Please try again."
+          />
         ) : businesses.length === 0 ? (
           <EmptyState
             icon={<Store className="h-12 w-12" />}

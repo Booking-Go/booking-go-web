@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PageHeader, ConfirmDialog, Modal } from '@/components/shared';
+import { PageHeader, ConfirmDialog, Modal, AddToCalendar } from '@/components/shared';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -38,6 +38,7 @@ import {
   CalendarDays,
   Star,
 } from 'lucide-react';
+import { bookingToCalendarEvent, type CalendarPerspective } from '@/lib/calendar';
 import type { Booking, PaginationMeta } from '@/types';
 
 const STATUS_OPTIONS = [
@@ -94,6 +95,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
 
   const isOwner = userRole === 'business_owner';
+  const calendarPerspective: CalendarPerspective = isOwner ? 'owner' : 'customer';
 
   /** Refetch bookings client-side when filters/pagination change. */
   const loadBookings = useCallback(async () => {
@@ -381,6 +383,13 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                           Review
                         </Button>
                       )}
+                    {/* Add to Calendar — active bookings only */}
+                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                      <AddToCalendar
+                        event={bookingToCalendarEvent(booking, calendarPerspective)}
+                        size="sm"
+                      />
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -556,6 +565,17 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                 </div>
               )}
             </div>
+
+            {/* Add to Calendar — show for active bookings */}
+            {(detailBooking.status === 'pending' || detailBooking.status === 'confirmed') && (
+              <div className="flex items-center justify-between border-t pt-4">
+                <p className="text-xs font-medium text-muted-foreground">Add to Calendar</p>
+                <AddToCalendar
+                  event={bookingToCalendarEvent(detailBooking, calendarPerspective)}
+                  size="default"
+                />
+              </div>
+            )}
           </div>
         )}
       </Modal>

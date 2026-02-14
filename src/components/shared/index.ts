@@ -1,5 +1,8 @@
+export { AddToCalendar } from './add-to-calendar';
 export { CityCombobox } from './city-combobox';
 export { Logo } from './logo';
+export { MessagePopover } from './message-popover';
+export { NotificationPopover } from './notification-popover';
 export { PageHeader } from './page-header';
 export { StatCard } from './stat-card';
 export { Loading } from './loading';

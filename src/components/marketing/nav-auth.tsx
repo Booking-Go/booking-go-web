@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { logout as logoutAction } from '@/actions/auth';
+import { getUnreadNotificationCount } from '@/actions/notification';
+import { getUnreadMessageCount } from '@/actions/message';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -22,20 +27,47 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+import { NotificationPopover, MessagePopover } from '@/components/shared';
 import { LayoutDashboard, LogOut, User } from 'lucide-react';
 
 /**
  * Auth-aware navigation buttons for the marketing navbar.
- * Shows sign-in / get-started when logged out, or a user avatar menu when logged in.
+ * Shows sign-in / get-started when logged out.
+ * When logged in, shows notification & message indicators plus a user avatar menu.
  */
 export function NavAuth() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  /** Fetch unread counts for notifications & messages. */
+  const fetchUnread = useCallback(async () => {
+    try {
+      const [notifResult, msgResult] = await Promise.all([
+        getUnreadNotificationCount(),
+        getUnreadMessageCount(),
+      ]);
+      if (notifResult.success) setUnreadNotifs(notifResult.data);
+      if (msgResult.success) setUnreadMessages(msgResult.data);
+    } catch {
+      // Non-critical — silently fail
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, [user, fetchUnread]);
 
   if (!user) {
     return (
       <>
+        <ThemeToggle />
         <Button variant="ghost" size="sm" asChild>
           <Link href="/login">Sign in</Link>
         </Button>
@@ -48,13 +80,25 @@ export function NavAuth() {
 
   const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || 'U';
 
-  const handleLogout = () => {
-    logout();
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      await logoutAction();
+    } catch {
+      // Even if API call fails, log out locally
+    } finally {
+      logout();
+      toast.success('Logged out');
+      router.push('/');
+    }
   };
 
   return (
     <>
+      <MessagePopover unreadCount={unreadMessages} onCountChange={fetchUnread} />
+      <NotificationPopover unreadCount={unreadNotifs} onCountChange={fetchUnread} />
+      <ThemeToggle />
+
+      {/* User avatar menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -67,8 +111,17 @@ export function NavAuth() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <div className="px-2 py-1.5 text-sm font-medium">
-            {user.firstName} {user.lastName}
+          <div className="px-2 py-1.5">
+            <div className="text-sm font-medium">
+              {user.firstName} {user.lastName}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {user.role === 'business_owner'
+                ? 'Business Owner'
+                : user.role === 'admin'
+                  ? 'Admin'
+                  : 'Customer'}
+            </div>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>

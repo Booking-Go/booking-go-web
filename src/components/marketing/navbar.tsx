@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Logo } from '@/components/shared';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { NavAuth } from './nav-auth';
 
 /**
@@ -29,7 +28,6 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <NavAuth />
         </div>
       </div>
