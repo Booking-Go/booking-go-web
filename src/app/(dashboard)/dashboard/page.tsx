@@ -1,13 +1,22 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { useAuthStore } from '@/store/authStore';
 import { businessApi } from '@/lib/business';
 import { bookingApi } from '@/lib/booking';
 import { analyticsApi } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
-import { PageHeader, StatCard } from '@/components/shared';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { PageHeader, StatCard, DateRangePicker } from '@/components/shared';
 import {
   Calendar,
   Store,
@@ -154,6 +163,16 @@ function BusinessOwnerDashboard() {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [loadingBookings, setLoadingBookings] = useState(false);
 
+  // Default date range: full current month
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
+  /** ISO date string helper */
+  const rangeStartStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+  const rangeEndStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
+
   // Fetch businesses
   useEffect(() => {
     businessApi
@@ -168,27 +187,24 @@ function BusinessOwnerDashboard() {
       .finally(() => setLoadingBiz(false));
   }, []);
 
-  // Fetch analytics + bookings when business changes
+  // Fetch analytics + bookings when business or date range changes
   useEffect(() => {
     if (!selectedBusinessId) return;
+    // Wait until both ends of range are selected
+    if (!rangeStartStr || !rangeEndStr) return;
 
     setLoadingAnalytics(true);
     setLoadingBookings(true);
 
     analyticsApi
-      .getDashboard(selectedBusinessId, '30d')
+      .getDashboard(selectedBusinessId, '30d', rangeStartStr, rangeEndStr)
       .then(setAnalytics)
       .catch(() => setAnalytics(null))
       .finally(() => setLoadingAnalytics(false));
 
-    const today = new Date().toISOString().split('T')[0];
-    const next30 = new Date();
-    next30.setDate(next30.getDate() + 30);
-    const endDateStr = next30.toISOString().split('T')[0];
-
-    // Fetch upcoming bookings (today + next 30 days, all statuses)
+    // Fetch bookings within the selected range
     const upcomingPromise = bookingApi
-      .list({ limit: 50, startDate: today, endDate: endDateStr })
+      .list({ limit: 50, startDate: rangeStartStr, endDate: rangeEndStr })
       .then(({ bookings: b }) => setUpcomingBookings(b))
       .catch(() => setUpcomingBookings([]));
 
@@ -199,7 +215,7 @@ function BusinessOwnerDashboard() {
       .catch(() => setPendingBookings([]));
 
     Promise.all([upcomingPromise, pendingPromise]).finally(() => setLoadingBookings(false));
-  }, [selectedBusinessId]);
+  }, [selectedBusinessId, rangeStartStr, rangeEndStr]);
 
   const selectedBusiness = useMemo(
     () => businesses.find((b) => b.id === selectedBusinessId),
@@ -238,26 +254,42 @@ function BusinessOwnerDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header with business selector */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      {/* Header with business selector + date range */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="shrink-0">
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Business overview &mdash; last 30 days</p>
+          <p className="text-sm text-muted-foreground">
+            Business overview
+            {dateRange?.from && dateRange?.to
+              ? ` — ${format(dateRange.from, 'MMM d')} to ${format(dateRange.to, 'MMM d, yyyy')}`
+              : ''}
+          </p>
         </div>
-        {businesses.length > 1 && (
-          <select
-            value={selectedBusinessId ?? ''}
-            onChange={(e) => setSelectedBusinessId(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
-            aria-label="Select business"
-          >
-            {businesses.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex flex-col items-stretch gap-2">
+          {businesses.length > 1 && (
+            <Select value={selectedBusinessId ?? ''} onValueChange={setSelectedBusinessId}>
+              <SelectTrigger
+                className="h-9 w-full gap-2 text-sm font-medium"
+                aria-label="Select business"
+              >
+                <Store className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {businesses.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <DateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            className="w-full"
+          />
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -290,11 +322,11 @@ function BusinessOwnerDashboard() {
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p>Compared to the previous 30-day period</p>
+                  <p>Compared to the previous period</p>
                 </TooltipContent>
               </Tooltip>
             ) : (
-              'Last 30 days'
+              'Selected period'
             )
           }
         />
@@ -359,10 +391,10 @@ function BusinessOwnerDashboard() {
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {analytics.overview.totalBookings === 0 && <span>Last 30 days</span>}
+                {analytics.overview.totalBookings === 0 && <span>Selected period</span>}
               </span>
             ) : (
-              'Last 30 days'
+              'Selected period'
             )
           }
         />
@@ -391,7 +423,7 @@ function BusinessOwnerDashboard() {
           <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-semibold">Upcoming Bookings</h3>
+              <h3 className="font-semibold">Bookings</h3>
             </div>
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
               {loadingBookings ? '...' : upcomingBookings.length}
@@ -405,11 +437,9 @@ function BusinessOwnerDashboard() {
             ) : upcomingBookings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Calendar className="h-8 w-8 text-muted-foreground/40" />
-                <p className="mt-3 text-sm font-medium text-muted-foreground">
-                  No upcoming bookings
-                </p>
+                <p className="mt-3 text-sm font-medium text-muted-foreground">No bookings found</p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  No bookings scheduled for the next 30 days.
+                  No bookings in the selected date range.
                 </p>
               </div>
             ) : (
@@ -530,7 +560,7 @@ function BusinessOwnerDashboard() {
         {/* Performance metrics */}
         <div className="rounded-2xl border border-border/60 bg-card p-6 lg:col-span-2">
           <h3 className="font-semibold">Performance</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Key metrics for the last 30 days</p>
+          <p className="mt-1 text-xs text-muted-foreground">Key metrics for the selected period</p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <MetricTile

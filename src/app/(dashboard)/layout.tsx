@@ -23,6 +23,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Logo } from '@/components/shared';
+import { PushNotificationBanner } from '@/components/shared/push-notification-banner';
 import { toast } from 'sonner';
 import {
   LayoutDashboard,
@@ -297,7 +298,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 p-6 lg:p-8">{children}</main>
+          <main className="flex-1 p-6 lg:p-8">
+            <PushNotificationBanner />
+            {children}
+          </main>
         </div>
       </div>
     </TooltipProvider>

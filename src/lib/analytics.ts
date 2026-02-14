@@ -18,13 +18,24 @@ export const analyticsApi = {
    * Fetch comprehensive dashboard analytics for a business.
    *
    * @param businessId - UUID of the business
-   * @param period - '7d' | '30d' | '90d' | '365d' | 'all'
+   * @param period - '7d' | '30d' | '90d' | '365d' | 'all' (fallback preset)
+   * @param startDate - Optional ISO date string (YYYY-MM-DD) for custom range
+   * @param endDate - Optional ISO date string (YYYY-MM-DD) for custom range
    * @returns Business analytics payload
    */
-  async getDashboard(businessId: string, period = '30d'): Promise<BusinessAnalytics> {
+  async getDashboard(
+    businessId: string,
+    period = '30d',
+    startDate?: string,
+    endDate?: string
+  ): Promise<BusinessAnalytics> {
+    const params: Record<string, string> = { period };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
     const { data } = await apiClient.get<ApiResponse<BusinessAnalytics>>(
       `/businesses/${businessId}/analytics`,
-      { params: { period } },
+      { params }
     );
     return data.data;
   },
@@ -37,10 +48,14 @@ export const analyticsApi = {
    * @param endDate - ISO date string (YYYY-MM-DD)
    * @returns Revenue report payload
    */
-  async getRevenueReport(businessId: string, startDate: string, endDate: string): Promise<RevenueReport> {
+  async getRevenueReport(
+    businessId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<RevenueReport> {
     const { data } = await apiClient.get<ApiResponse<RevenueReport>>(
       `/businesses/${businessId}/analytics/report`,
-      { params: { startDate, endDate } },
+      { params: { startDate, endDate } }
     );
     return data.data;
   },

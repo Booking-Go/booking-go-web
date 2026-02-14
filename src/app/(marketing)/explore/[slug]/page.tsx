@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, use } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loading, Modal } from '@/components/shared';
+import { Modal } from '@/components/shared';
+import { BusinessDetailSkeleton } from '@/components/shared/skeletons';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -35,6 +36,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { messageApi } from '@/lib/message';
+import { saveBookingIntent, consumeBookingIntent } from '@/lib/booking-intent';
 import type { Business, BusinessHours, Service, Slot, Review, ReviewMeta } from '@/types';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -51,12 +53,13 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
 
   // Booking flow
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<Slot[]>([]);
+  const [allSlots, setAllSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
     return d.toISOString().split('T')[0];
   });
+  const LOOKAHEAD_DAYS = 14;
 
   // Confirm booking modal
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -73,6 +76,9 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
 
   // Message business
   const [startingChat, setStartingChat] = useState(false);
+
+  // Ref to hold a pending intent slot ID while we wait for slots to load
+  const pendingIntentSlotId = useRef<string | null>(null);
 
   // Load business data
   useEffect(() => {
@@ -97,6 +103,22 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
     load();
   }, [slug, router]);
 
+  // Restore booking intent after sign-in
+  useEffect(() => {
+    if (!user || !services.length || loading) return;
+    const intent = consumeBookingIntent(slug);
+    if (!intent) return;
+
+    // Find the service the user had selected
+    const svc = services.find((s) => s.id === intent.serviceId);
+    if (!svc) return;
+
+    // Store the pending slot ID — it will be resolved once slots finish loading
+    pendingIntentSlotId.current = intent.slotId;
+    setSelectedDate(intent.date);
+    setSelectedService(svc);
+  }, [user, services, loading, slug]);
+
   // Load reviews
   const loadReviews = useCallback(async () => {
     if (!business) return;
@@ -116,49 +138,88 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
     if (business) loadReviews();
   }, [business, reviewPage, loadReviews]);
 
-  // Load available slots when service or date changes
+  // Load all slots for 14 days when service changes
   const loadSlots = useCallback(async () => {
     if (!business || !selectedService) return;
     setLoadingSlots(true);
     try {
+      const today = new Date();
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + LOOKAHEAD_DAYS - 1);
+
       const slots = await slotApi.getAvailable({
         businessId: business.id,
         serviceId: selectedService.id,
-        date: selectedDate,
+        startDate: today.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
       });
-      setAvailableSlots(slots);
+      setAllSlots(slots);
+
+      // Auto-select the first date that has available slots
+      if (slots.length > 0) {
+        const firstAvailableDate = new Date(slots[0].startTime).toISOString().split('T')[0];
+        setSelectedDate(firstAvailableDate);
+      } else {
+        setSelectedDate(today.toISOString().split('T')[0]);
+      }
     } catch {
-      setAvailableSlots([]);
+      setAllSlots([]);
     } finally {
       setLoadingSlots(false);
     }
-  }, [business, selectedService, selectedDate]);
+  }, [business, selectedService]);
 
   useEffect(() => {
     if (selectedService) loadSlots();
-  }, [selectedService, selectedDate, loadSlots]);
+  }, [selectedService, loadSlots]);
 
-  const changeDate = (offset: number) => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() + offset);
-    // Don't go to past dates
-    const today = new Date().toISOString().split('T')[0];
-    const next = d.toISOString().split('T')[0];
-    if (next < today) return;
-    setSelectedDate(next);
-  };
+  // Complete intent restoration — auto-open the slot modal once slots are loaded
+  useEffect(() => {
+    if (!pendingIntentSlotId.current || loadingSlots || allSlots.length === 0) return;
+    const slotId = pendingIntentSlotId.current;
+    pendingIntentSlotId.current = null;
+
+    const slot = allSlots.find((s) => s.id === slotId);
+    if (slot && slot.capacity - slot.bookedCount > 0) {
+      setSelectedSlot(slot);
+      setBookingNotes('');
+      setBookingPeople(1);
+      setBookingSuccess(false);
+      toast.success('Welcome back! Finish your booking below.');
+    }
+  }, [allSlots, loadingSlots]);
+
+  // Derive slots for the selected date and availability map from allSlots
+  const availableSlots = allSlots.filter((slot) => {
+    const slotDate = new Date(slot.startTime).toISOString().split('T')[0];
+    return slotDate === selectedDate && slot.capacity - slot.bookedCount > 0;
+  });
+
+  /** Map of date string → number of available slots. */
+  const dateAvailabilityMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const slot of allSlots) {
+      if (slot.capacity - slot.bookedCount <= 0) continue;
+      const d = new Date(slot.startTime).toISOString().split('T')[0];
+      map.set(d, (map.get(d) || 0) + 1);
+    }
+    return map;
+  }, [allSlots]);
+
+  /** Generate the 14-day strip dates. */
+  const dateStrip = useMemo(() => {
+    const dates: string[] = [];
+    const today = new Date();
+    for (let i = 0; i < LOOKAHEAD_DAYS; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    return dates;
+  }, []);
 
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const formatDateLabel = (dateStr: string) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
   const formatDuration = (mins: number) => {
     if (mins < 60) return `${mins}min`;
@@ -167,11 +228,29 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
     return m ? `${h}h ${m}min` : `${h}h`;
   };
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const formatDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString(undefined, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  };
 
   const handleSelectSlot = (slot: Slot) => {
     if (!user) {
-      toast.error('Please sign in to book');
+      // Save intent so the booking resumes after sign-in
+      if (selectedService) {
+        saveBookingIntent({
+          businessSlug: slug,
+          serviceId: selectedService.id,
+          date: selectedDate,
+          slotId: slot.id,
+        });
+      }
+      toast('Please sign in to book', {
+        description: "You'll be brought right back to finish booking.",
+      });
       router.push(`/login?callbackUrl=/explore/${slug}`);
       return;
     }
@@ -203,12 +282,19 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading)
+    return (
+      <div className="container mx-auto max-w-5xl px-4 py-10">
+        <BusinessDetailSkeleton />
+      </div>
+    );
   if (!business) return null;
 
   const handleMessageBusiness = async () => {
     if (!user) {
-      toast.error('Please sign in to message this business');
+      toast('Please sign in to message this business', {
+        description: "You'll be brought right back.",
+      });
       router.push(`/login?callbackUrl=/explore/${slug}`);
       return;
     }
@@ -426,91 +512,151 @@ export default function BusinessPublicPage({ params }: { params: Promise<{ slug:
                   <CardTitle className="text-lg">
                     Available Slots — {selectedService.name}
                   </CardTitle>
-                  <CardDescription>Pick a date and select a time slot to book.</CardDescription>
+                  <CardDescription>
+                    Select a date to see available time slots. Green dots indicate availability.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Date navigator */}
-                  <div className="mb-5 flex items-center justify-between rounded-lg border border-border/40 p-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => changeDate(-1)}
-                      disabled={isToday}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{formatDateLabel(selectedDate)}</span>
-                      {!isToday && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2 h-7 text-xs"
-                          onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-                        >
-                          Today
-                        </Button>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => changeDate(1)}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Date picker */}
-                  <div className="mb-5">
-                    <Input
-                      type="date"
-                      value={selectedDate}
-                      min={new Date().toISOString().split('T')[0]}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-auto"
-                    />
-                  </div>
-
-                  {/* Slots grid */}
                   {loadingSlots ? (
                     <div className="flex items-center justify-center py-10">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : availableSlots.length === 0 ? (
-                    <div className="py-10 text-center">
-                      <Calendar className="mx-auto h-10 w-10 text-muted-foreground/40" />
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        No available slots on this date. Try another day.
-                      </p>
-                    </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                      {availableSlots.map((slot) => {
-                        const spotsLeft = slot.capacity - slot.bookedCount;
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() => handleSelectSlot(slot)}
-                            className="flex flex-col items-center rounded-lg border border-border/60 p-3 transition-all hover:border-primary hover:bg-primary/5"
-                          >
-                            <span className="text-sm font-medium tabular-nums">
-                              {formatTime(slot.startTime)}
-                            </span>
-                            <span className="mt-0.5 text-xs text-muted-foreground">
-                              {formatTime(slot.endTime)}
-                            </span>
-                            <div className="mt-1.5 flex items-center gap-1 text-xs">
-                              <IndianRupee className="h-3 w-3" />
-                              <span>{slot.price.toFixed(0)}</span>
-                            </div>
-                            {slot.capacity > 1 && (
-                              <span className="mt-1 text-[10px] text-muted-foreground">
-                                {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <>
+                      {/* 14-day horizontal date strip with arrow buttons */}
+                      <div className="relative mb-6">
+                        {/* Left arrow */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const container = document.getElementById('date-strip');
+                            container?.scrollBy({ left: -200, behavior: 'smooth' });
+                          }}
+                          className="absolute -left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background shadow-sm transition-colors hover:bg-muted"
+                          aria-label="Scroll dates left"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+
+                        <div
+                          id="date-strip"
+                          className="mx-8 flex gap-1.5 overflow-x-hidden scroll-smooth"
+                        >
+                          {dateStrip.map((dateStr) => {
+                            const d = new Date(dateStr + 'T00:00:00');
+                            const dayName = d
+                              .toLocaleDateString(undefined, { weekday: 'short' })
+                              .toUpperCase();
+                            const dayNum = d.getDate();
+                            const isSelected = dateStr === selectedDate;
+                            const slotCount = dateAvailabilityMap.get(dateStr) || 0;
+                            const hasSlots = slotCount > 0;
+                            const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                            return (
+                              <button
+                                key={dateStr}
+                                type="button"
+                                onClick={() => setSelectedDate(dateStr)}
+                                className={`flex w-16 shrink-0 flex-col items-center rounded-xl py-2.5 text-center transition-all ${
+                                  isSelected
+                                    ? 'border-2 border-primary bg-primary/10 text-primary'
+                                    : hasSlots
+                                      ? 'border border-border/60 hover:border-primary/40 hover:bg-muted/50'
+                                      : 'border border-border/30 text-muted-foreground/50'
+                                }`}
+                              >
+                                <span
+                                  className={`text-[10px] font-medium leading-tight ${isToday ? 'text-primary' : ''}`}
+                                >
+                                  {isToday ? 'TODAY' : dayName}
+                                </span>
+                                <span
+                                  className={`text-lg font-semibold leading-tight ${isSelected ? '' : hasSlots ? 'text-foreground' : ''}`}
+                                >
+                                  {dayNum}
+                                </span>
+                                {/* Availability indicator */}
+                                <span
+                                  className={`mt-1 h-1.5 w-1.5 rounded-full ${
+                                    hasSlots ? 'bg-green-500' : 'bg-muted-foreground/20'
+                                  }`}
+                                />
+                                {hasSlots && (
+                                  <span className="mt-0.5 text-[9px] leading-tight text-muted-foreground">
+                                    {slotCount} slots
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Right arrow */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const container = document.getElementById('date-strip');
+                            container?.scrollBy({ left: 200, behavior: 'smooth' });
+                          }}
+                          className="absolute -right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background shadow-sm transition-colors hover:bg-muted"
+                          aria-label="Scroll dates right"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Selected date label */}
+                      <div className="mb-4 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        {formatDateLabel(selectedDate)}
+                      </div>
+
+                      {/* Slots grid */}
+                      {availableSlots.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-border/60 py-10 text-center">
+                          <Calendar className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                          <p className="mt-3 text-sm text-muted-foreground">
+                            No available slots on this date.
+                          </p>
+                          {dateAvailabilityMap.size > 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground/70">
+                              Pick a date with a green dot above to find available slots.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                          {availableSlots.map((slot) => {
+                            const spotsLeft = slot.capacity - slot.bookedCount;
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => handleSelectSlot(slot)}
+                                className="flex flex-col items-center rounded-lg border border-border/60 p-3 transition-all hover:border-primary hover:bg-primary/5"
+                              >
+                                <span className="text-sm font-medium tabular-nums">
+                                  {formatTime(slot.startTime)}
+                                </span>
+                                <span className="mt-0.5 text-xs text-muted-foreground">
+                                  {formatTime(slot.endTime)}
+                                </span>
+                                <div className="mt-1.5 flex items-center gap-1 text-xs">
+                                  <IndianRupee className="h-3 w-3" />
+                                  <span>{slot.price.toFixed(0)}</span>
+                                </div>
+                                {slot.capacity > 1 && (
+                                  <span className="mt-1 text-[10px] text-muted-foreground">
+                                    {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

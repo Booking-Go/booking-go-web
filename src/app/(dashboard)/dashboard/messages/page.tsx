@@ -11,14 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import {
-  ArrowLeft,
-  Loader2,
-  MessageSquare,
-  Send,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquare, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Conversation, ChatMessage, PaginationMeta } from '@/types';
 
@@ -117,10 +110,10 @@ export default function MessagesPage() {
       // Mark as read
       messageApi.markAsRead(conv.id).catch(() => {});
       setConversations((prev) =>
-        prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c)),
+        prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
       );
     },
-    [activeConversation, joinConversation, leaveConversation, loadMessages],
+    [activeConversation, joinConversation, leaveConversation, loadMessages]
   );
 
   // ─── Real-time events ──────────────────────────────────────────────
@@ -129,7 +122,11 @@ export default function MessagesPage() {
 
     const unsubMessage = on('message:received', (message: ChatMessage) => {
       if (activeConversation && message.conversationId === activeConversation.id) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          // Deduplicate: skip if message already exists (from optimistic send or duplicate event)
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
         // Auto mark as read if it's from the other party
         if (message.senderId !== user?.id) {
           messageApi.markAsRead(activeConversation.id).catch(() => {});
@@ -150,7 +147,7 @@ export default function MessagesPage() {
             };
           }
           return c;
-        }),
+        })
       );
     });
 
@@ -166,6 +163,13 @@ export default function MessagesPage() {
       unsubTyping();
     };
   }, [isConnected, on, activeConversation, user?.id]);
+
+  // ─── Re-join room on reconnect ────────────────────────────────────
+  // Socket.IO clears server-side rooms on disconnect; re-join on reconnect
+  useEffect(() => {
+    if (!isConnected || !activeConversation) return;
+    joinConversation(activeConversation.id);
+  }, [isConnected, activeConversation, joinConversation]);
 
   // ─── Scroll to bottom on new messages ──────────────────────────────
   useEffect(() => {
@@ -186,12 +190,21 @@ export default function MessagesPage() {
     // Try socket first, fallback to REST
     if (isConnected) {
       socketSend(activeConversation.id, content, (response) => {
-        if (!response.success) {
+        if (response.success && response.data) {
+          // Add own message to state from callback (don't wait for event)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === response.data!.id)) return prev;
+            return [...prev, response.data!];
+          });
+        } else if (!response.success) {
           // Fallback to REST
           messageApi
             .sendMessage(activeConversation.id, content)
             .then((msg) => {
-              setMessages((prev) => [...prev, msg]);
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
             })
             .catch(() => {
               toast.error('Failed to send message');
@@ -203,7 +216,10 @@ export default function MessagesPage() {
     } else {
       try {
         const msg = await messageApi.sendMessage(activeConversation.id, content);
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
       } catch {
         toast.error('Failed to send message');
         setNewMessage(content);
@@ -277,7 +293,7 @@ export default function MessagesPage() {
         <div
           className={cn(
             'w-full shrink-0 border-r border-border/40 md:w-80',
-            activeConversation ? 'hidden md:block' : 'block',
+            activeConversation ? 'hidden md:block' : 'block'
           )}
         >
           <div className="flex h-full flex-col">
@@ -315,12 +331,15 @@ export default function MessagesPage() {
                       onClick={() => openConversation(conv)}
                       className={cn(
                         'flex w-full items-start gap-3 border-b border-border/20 px-4 py-3 text-left transition-colors hover:bg-accent/50',
-                        activeConversation?.id === conv.id && 'bg-accent/70',
+                        activeConversation?.id === conv.id && 'bg-accent/70'
                       )}
                     >
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                         {isOwner
-                          ? conv.customerName.split(' ').map((n) => n[0]).join('')
+                          ? conv.customerName
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
                           : conv.businessName[0]}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -337,7 +356,10 @@ export default function MessagesPage() {
                             {conv.lastMessageText || 'No messages yet'}
                           </p>
                           {conv.unreadCount > 0 && (
-                            <Badge variant="destructive" className="ml-1 h-5 min-w-5 shrink-0 px-1.5 text-[10px]">
+                            <Badge
+                              variant="destructive"
+                              className="ml-1 h-5 min-w-5 shrink-0 px-1.5 text-[10px]"
+                            >
                               {conv.unreadCount}
                             </Badge>
                           )}
@@ -387,10 +409,7 @@ export default function MessagesPage() {
 
         {/* ── Chat panel ── */}
         <div
-          className={cn(
-            'flex flex-1 flex-col',
-            !activeConversation ? 'hidden md:flex' : 'flex',
-          )}
+          className={cn('flex flex-1 flex-col', !activeConversation ? 'hidden md:flex' : 'flex')}
         >
           {!activeConversation ? (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -414,18 +433,17 @@ export default function MessagesPage() {
                 </Button>
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                   {isOwner
-                    ? activeConversation.customerName.split(' ').map((n) => n[0]).join('')
+                    ? activeConversation.customerName
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
                     : activeConversation.businessName[0]}
                 </div>
                 <div>
                   <p className="text-sm font-medium">
-                    {isOwner
-                      ? activeConversation.customerName
-                      : activeConversation.businessName}
+                    {isOwner ? activeConversation.customerName : activeConversation.businessName}
                   </p>
-                  {otherTyping && (
-                    <p className="text-xs text-primary animate-pulse">typing...</p>
-                  )}
+                  {otherTyping && <p className="text-xs text-primary animate-pulse">typing...</p>}
                 </div>
               </div>
 
@@ -468,17 +486,14 @@ export default function MessagesPage() {
                           return (
                             <div
                               key={msg.id}
-                              className={cn(
-                                'flex',
-                                isMine ? 'justify-end' : 'justify-start',
-                              )}
+                              className={cn('flex', isMine ? 'justify-end' : 'justify-start')}
                             >
                               <div
                                 className={cn(
                                   'max-w-[75%] rounded-2xl px-4 py-2',
                                   isMine
                                     ? 'rounded-br-md bg-primary text-primary-foreground'
-                                    : 'rounded-bl-md bg-muted',
+                                    : 'rounded-bl-md bg-muted'
                                 )}
                               >
                                 <p className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -487,9 +502,7 @@ export default function MessagesPage() {
                                 <p
                                   className={cn(
                                     'mt-1 text-right text-[10px]',
-                                    isMine
-                                      ? 'text-primary-foreground/70'
-                                      : 'text-muted-foreground',
+                                    isMine ? 'text-primary-foreground/70' : 'text-muted-foreground'
                                   )}
                                 >
                                   {formatMessageTime(msg.createdAt)}

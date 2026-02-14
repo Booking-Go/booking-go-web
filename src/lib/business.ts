@@ -54,6 +54,22 @@ export interface BusinessListParams {
   search?: string;
 }
 
+/** Query parameters for nearby business search. */
+export interface NearbyBusinessParams {
+  lat: number;
+  lng: number;
+  radius?: number;
+  page?: number;
+  limit?: number;
+  category?: string;
+  search?: string;
+}
+
+/** A business result with distance information. */
+export interface NearbyBusiness extends Business {
+  distanceKm: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -64,9 +80,27 @@ interface ApiResponse<T> {
 
 export const businessApi = {
   /** Lists all active businesses with optional filters and pagination. */
-  async list(params: BusinessListParams = {}): Promise<{ businesses: Business[]; meta: PaginationMeta }> {
+  async list(
+    params: BusinessListParams = {}
+  ): Promise<{ businesses: Business[]; meta: PaginationMeta }> {
     const { data } = await apiClient.get<ApiResponse<Business[]>>('/businesses', { params });
-    return { businesses: data.data, meta: data.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 } };
+    return {
+      businesses: data.data,
+      meta: data.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 },
+    };
+  },
+
+  /** Finds nearby businesses sorted by distance from given coordinates. */
+  async nearby(
+    params: NearbyBusinessParams
+  ): Promise<{ businesses: NearbyBusiness[]; meta: PaginationMeta }> {
+    const { data } = await apiClient.get<ApiResponse<NearbyBusiness[]>>('/businesses/nearby', {
+      params,
+    });
+    return {
+      businesses: data.data,
+      meta: data.meta ?? { page: 1, limit: 12, total: 0, totalPages: 0 },
+    };
   },
 
   /** Gets businesses owned by the currently authenticated user. */
@@ -108,13 +142,18 @@ export const businessApi = {
 
   /** Gets the operating hours for a business. */
   async getHours(businessId: string): Promise<BusinessHours[]> {
-    const { data } = await apiClient.get<ApiResponse<BusinessHours[]>>(`/businesses/${businessId}/hours`);
+    const { data } = await apiClient.get<ApiResponse<BusinessHours[]>>(
+      `/businesses/${businessId}/hours`
+    );
     return data.data;
   },
 
   /** Sets (replaces) the operating hours for a business. */
   async setHours(businessId: string, hours: BusinessHoursPayload[]): Promise<BusinessHours[]> {
-    const { data } = await apiClient.put<ApiResponse<BusinessHours[]>>(`/businesses/${businessId}/hours`, hours);
+    const { data } = await apiClient.put<ApiResponse<BusinessHours[]>>(
+      `/businesses/${businessId}/hours`,
+      hours
+    );
     return data.data;
   },
 
@@ -122,13 +161,18 @@ export const businessApi = {
 
   /** Gets all holidays for a business. */
   async getHolidays(businessId: string): Promise<BusinessHoliday[]> {
-    const { data } = await apiClient.get<ApiResponse<BusinessHoliday[]>>(`/businesses/${businessId}/holidays`);
+    const { data } = await apiClient.get<ApiResponse<BusinessHoliday[]>>(
+      `/businesses/${businessId}/holidays`
+    );
     return data.data;
   },
 
   /** Adds a holiday date for a business. */
   async addHoliday(businessId: string, payload: BusinessHolidayPayload): Promise<BusinessHoliday> {
-    const { data } = await apiClient.post<ApiResponse<BusinessHoliday>>(`/businesses/${businessId}/holidays`, payload);
+    const { data } = await apiClient.post<ApiResponse<BusinessHoliday>>(
+      `/businesses/${businessId}/holidays`,
+      payload
+    );
     return data.data;
   },
 

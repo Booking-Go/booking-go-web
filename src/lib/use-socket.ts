@@ -5,9 +5,6 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/authStore';
 import type { ChatMessage } from '@/types';
 
-/** The backend URL for the Socket.IO connection (same origin via proxy). */
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
-
 /** Events emitted by the server. */
 interface ServerEvents {
   'message:received': (message: ChatMessage) => void;
@@ -18,10 +15,7 @@ interface ServerEvents {
     lastMessageAt: string;
     senderId: string;
   }) => void;
-  'conversation:read': (data: {
-    conversationId: string;
-    readBy: string;
-  }) => void;
+  'conversation:read': (data: { conversationId: string; readBy: string }) => void;
 }
 
 /** Events emitted by the client. */
@@ -30,13 +24,35 @@ interface ClientEvents {
   'conversation:leave': (conversationId: string) => void;
   'message:send': (
     data: { conversationId: string; content: string },
-    callback?: (response: { success: boolean; data?: ChatMessage; error?: string }) => void,
+    callback?: (response: { success: boolean; data?: ChatMessage; error?: string }) => void
   ) => void;
   'message:typing': (data: { conversationId: string; isTyping: boolean }) => void;
   'conversation:read': (conversationId: string) => void;
 }
 
 type TypedSocket = Socket<ServerEvents, ClientEvents>;
+
+/** Cached socket URL — fetched once from the server-side runtime config. */
+let cachedSocketUrl: string | null = null;
+
+/**
+ * Fetches the Socket.IO server URL from the runtime config API.
+ * The URL is a server-side env var (BACKEND_URL), not baked at build time.
+ */
+const getSocketUrl = async (): Promise<string | null> => {
+  if (cachedSocketUrl) return cachedSocketUrl;
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (data.socketUrl) {
+      cachedSocketUrl = data.socketUrl;
+      return cachedSocketUrl;
+    }
+  } catch (err) {
+    console.error('[Socket] Failed to fetch socket URL:', err);
+  }
+  return null;
+};
 
 /**
  * Hook that manages a Socket.IO connection for real-time messaging.
@@ -53,25 +69,45 @@ export const useSocket = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (!token) return;
 
-    const socket: TypedSocket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-    });
+    let cancelled = false;
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
+    const connect = async () => {
+      const socketUrl = await getSocketUrl();
+      if (cancelled || !socketUrl) return;
 
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
+      const socket: TypedSocket = io(socketUrl, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+      });
 
-    socketRef.current = socket;
+      socket.on('connect', () => {
+        console.log('[Socket] Connected:', socket.id);
+        setIsConnected(true);
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log('[Socket] Disconnected:', reason);
+        setIsConnected(false);
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('[Socket] Connection error:', err.message);
+      });
+
+      socket.io.on('reconnect', () => {
+        console.log('[Socket] Reconnected');
+      });
+
+      socketRef.current = socket;
+    };
+
+    connect();
 
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      socketRef.current?.disconnect();
       socketRef.current = null;
       setIsConnected(false);
     };
@@ -92,7 +128,7 @@ export const useSocket = () => {
     (
       conversationId: string,
       content: string,
-      callback?: (response: { success: boolean; data?: ChatMessage; error?: string }) => void,
+      callback?: (response: { success: boolean; data?: ChatMessage; error?: string }) => void
     ) => {
       if (socketRef.current?.connected) {
         socketRef.current.emit('message:send', { conversationId, content }, callback);
@@ -100,7 +136,7 @@ export const useSocket = () => {
         callback({ success: false, error: 'Socket not connected' });
       }
     },
-    [],
+    []
   );
 
   /** Emit typing indicator. */
@@ -114,17 +150,12 @@ export const useSocket = () => {
   }, []);
 
   /** Subscribe to a server event. Returns an unsubscribe function. */
-  const on = useCallback(
-    <E extends keyof ServerEvents>(event: E, handler: ServerEvents[E]) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      socketRef.current?.on(event, handler as any);
-      return () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        socketRef.current?.off(event, handler as any);
-      };
-    },
-    [],
-  );
+  const on = useCallback(<E extends keyof ServerEvents>(event: E, handler: ServerEvents[E]) => {
+    socketRef.current?.on(event, handler as any);
+    return () => {
+      socketRef.current?.off(event, handler as any);
+    };
+  }, []);
 
   return {
     socket: socketRef.current,

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL!;
 
 /**
  * Server-side fetch wrapper for use in Server Actions and Server Components.
@@ -17,10 +17,7 @@ export type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-export async function serverFetch<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+export async function serverFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const cookieStore = await cookies();
   const token = cookieStore.get('accessToken')?.value;
 
@@ -37,9 +34,7 @@ export async function serverFetch<T>(
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(
-      body?.error?.message || `Request failed with status ${res.status}`,
-    );
+    throw new Error(body?.error?.message || `Request failed with status ${res.status}`);
   }
 
   return body.data as T;

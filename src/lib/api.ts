@@ -25,7 +25,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (err: unknown) => Promise.reject(err),
+  (err: unknown) => Promise.reject(err)
 );
 
 // Response interceptor — auto refresh on 401, redirect on failure
@@ -61,7 +61,9 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('refreshToken');
         // Clear session cookie so middleware redirects
         document.cookie = 'session=; path=/; max-age=0; SameSite=Lax';
-        if (typeof window !== 'undefined') {
+        // Only force-redirect to login on protected pages (dashboard)
+        // Public pages (explore, landing) should NOT redirect — just fail silently
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
           window.location.href = '/login';
         }
         return Promise.reject(error);
@@ -69,7 +71,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  },
+  }
 );
 
 export default apiClient;

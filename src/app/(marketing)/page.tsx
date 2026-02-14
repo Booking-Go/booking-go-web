@@ -1,14 +1,7 @@
 import Link from 'next/link';
-import {
-  Calendar,
-  Users,
-  TrendingUp,
-  ArrowRight,
-  Sparkles,
-  Zap,
-} from 'lucide-react';
+import { Calendar, Users, TrendingUp, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FeatureCard, StepCard, TestimonialCard, Highlight } from '@/components/marketing';
+import { FeatureCard, StepCard, TestimonialCard, Highlight, Footer } from '@/components/marketing';
 
 export default function Home() {
   return (
@@ -38,26 +31,36 @@ export default function Home() {
 
           {/* Subheadline */}
           <p className="max-w-lg animate-fade-up text-lg leading-relaxed text-muted-foreground opacity-0 [animation-delay:150ms]">
-            The modern booking platform for salons, clinics, gyms, and consultants.
-            Your customers book in seconds. You stay in control.
+            The modern booking platform for salons, clinics, gyms, and consultants. Your customers
+            book in seconds. You stay in control.
           </p>
 
           {/* CTA buttons */}
           <div className="flex animate-fade-up gap-3 opacity-0 [animation-delay:300ms]">
-            <Button size="lg" className="h-12 rounded-full px-8 text-[15px] shadow-lg shadow-primary/20" asChild>
+            <Button
+              size="lg"
+              className="h-12 rounded-full px-8 text-[15px] shadow-lg shadow-primary/20"
+              asChild
+            >
               <Link href="/register">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" className="h-12 rounded-full px-8 text-[15px]" asChild>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-12 rounded-full px-8 text-[15px]"
+              asChild
+            >
               <Link href="#how-it-works">See how it works</Link>
             </Button>
           </div>
 
           {/* Social proof */}
           <p className="animate-fade-in pt-4 text-sm text-muted-foreground opacity-0 [animation-delay:500ms]">
-            Trusted by <span className="font-medium text-foreground">2,000+</span> businesses worldwide
+            Trusted by <span className="font-medium text-foreground">2,000+</span> businesses
+            worldwide
           </p>
         </div>
       </section>
@@ -146,8 +149,8 @@ export default function Home() {
                 Built for businesses that value simplicity
               </h2>
               <p className="mt-4 text-muted-foreground">
-                No complex setups. No bloated features. Just a clean, focused tool that does one thing
-                exceptionally well.
+                No complex setups. No bloated features. Just a clean, focused tool that does one
+                thing exceptionally well.
               </p>
 
               <ul className="mt-8 space-y-4">
@@ -209,7 +212,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </>
   );
 }
-

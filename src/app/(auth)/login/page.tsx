@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { authApi, LoginPayload } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
+import { DEFAULT_REDIRECTS } from '@/lib/routes';
 import { AxiosError } from 'axios';
 import { Eye, EyeOff, User, Briefcase } from 'lucide-react';
 
@@ -44,7 +45,9 @@ export default function LoginPage() {
       toast.success('Welcome back!');
 
       // Customers land on explore (browse businesses), owners go to dashboard
-      const defaultRedirect = user.role === 'customer' ? '/explore' : '/dashboard';
+      const defaultRedirect =
+        DEFAULT_REDIRECTS[user.role as keyof typeof DEFAULT_REDIRECTS] ??
+        DEFAULT_REDIRECTS.fallback;
       router.push(callbackUrl === '/dashboard' ? defaultRedirect : callbackUrl);
     } catch (err: unknown) {
       const axiosError = err instanceof AxiosError ? err : null;
@@ -79,9 +82,7 @@ export default function LoginPage() {
             placeholder="you@example.com"
             className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
-          {errors.email && (
-            <p className="text-xs text-destructive">{errors.email.message}</p>
-          )}
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -116,9 +117,7 @@ export default function LoginPage() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          {errors.password && (
-            <p className="text-xs text-destructive">{errors.password.message}</p>
-          )}
+          {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
@@ -128,7 +127,14 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="font-medium text-foreground hover:underline">
+        <Link
+          href={
+            callbackUrl !== '/dashboard'
+              ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
+              : '/register'
+          }
+          className="font-medium text-foreground hover:underline"
+        >
           Sign up
         </Link>
       </p>
