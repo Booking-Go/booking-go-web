@@ -34,7 +34,16 @@ export async function serverFetch<T>(path: string, options: RequestInit = {}): P
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(body?.error?.message || `Request failed with status ${res.status}`);
+    const errorMessage =
+      body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error(`[serverFetch] ${options.method || 'GET'} ${path} → ${res.status}`, {
+        error: body?.error || body,
+        status: res.status,
+      });
+    }
+    throw new Error(errorMessage);
   }
 
   return body.data as T;
@@ -64,7 +73,16 @@ export async function serverFetchPaginated<T, M = PaginationMeta>(
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(body?.error?.message || `Request failed with status ${res.status}`);
+    const errorMessage =
+      body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error(`[serverFetchPaginated] ${options.method || 'GET'} ${path} → ${res.status}`, {
+        error: body?.error || body,
+        status: res.status,
+      });
+    }
+    throw new Error(errorMessage);
   }
 
   return { data: body.data as T, meta: body.meta as M };

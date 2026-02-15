@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { serverFetchPaginated } from '@/lib/server-api';
 import { NotificationFeed } from './_components/feed';
 import type { Notification, PaginationMeta } from '@/types';
+
+export const metadata: Metadata = {
+  title: 'Notifications',
+};
 
 /**
  * Notifications page — Server Component.

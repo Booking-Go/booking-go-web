@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { serverFetch } from '@/lib/server-api';
 import { BusinessList } from './_components/list';
 import type { Business } from '@/types';
+
+export const metadata: Metadata = {
+  title: 'My Businesses',
+};
 
 /**
  * My Businesses page — Server Component.

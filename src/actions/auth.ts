@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import type { ActionResult } from '@/lib/server-api';
+import type { UserRoleValue } from '@/lib/constants';
 
 const BACKEND_URL = process.env.BACKEND_URL!;
 
@@ -11,7 +12,7 @@ interface AuthUser {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'customer' | 'business_owner' | 'admin';
+  role: UserRoleValue;
   emailVerified: boolean;
   profileImage?: string;
   timezone: string;
@@ -47,7 +48,16 @@ async function authFetch<T>(path: string, body: Record<string, unknown>): Promis
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(json?.error?.message || `Request failed with status ${res.status}`);
+    const errorMessage =
+      json?.error?.message || json?.message || `Request failed with status ${res.status}`;
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error(`[authFetch] POST ${path} → ${res.status}`, {
+        error: json?.error || json,
+        status: res.status,
+      });
+    }
+    throw new Error(errorMessage);
   }
 
   // Forward the Set-Cookie header from the backend to the browser
@@ -93,7 +103,7 @@ export async function register(payload: {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'customer' | 'business_owner';
+  role: UserRoleValue;
 }): Promise<ActionResult<AuthData>> {
   try {
     const data = await authFetch<AuthData>('/auth/register', payload);

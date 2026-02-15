@@ -1,10 +1,17 @@
+import type {
+  UserRoleValue,
+  BookingStatusValue,
+  CancelledByValue,
+  SenderRoleValue,
+} from '@/lib/constants';
+
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'customer' | 'business_owner' | 'admin';
+  role: UserRoleValue;
   emailVerified: boolean;
   phoneVerified: boolean;
   profileImage?: string;
@@ -123,7 +130,7 @@ export interface Booking {
   businessId: string;
   customerId: string;
   serviceId?: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
+  status: BookingStatusValue;
   bookingDate: string;
   startTime: string;
   endTime: string;
@@ -135,7 +142,7 @@ export interface Booking {
   customerPhone?: string;
   notes?: string;
   cancellationReason?: string;
-  cancelledBy?: 'customer' | 'business' | 'system';
+  cancelledBy?: CancelledByValue;
   cancelledAt?: string;
   confirmedAt?: string;
   completedAt?: string;
@@ -208,7 +215,7 @@ export interface ChatMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  senderRole: 'customer' | 'business_owner';
+  senderRole: SenderRoleValue;
   content: string;
   isRead: boolean;
   createdAt: string;
@@ -275,7 +282,7 @@ export interface RecentBooking {
   id: string;
   customerName: string;
   serviceName: string;
-  status: string;
+  status: BookingStatusValue;
   bookingDate: string;
   totalPrice: number;
   createdAt: string;

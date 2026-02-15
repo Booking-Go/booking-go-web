@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
 import { serverFetchPaginated } from '@/lib/server-api';
 import { BookingList } from './_components/list';
 import type { Booking, PaginationMeta } from '@/types';
 import { cookies } from 'next/headers';
+
+export const metadata: Metadata = {
+  title: 'Bookings',
+};
 
 /**
  * Bookings page — Server Component.

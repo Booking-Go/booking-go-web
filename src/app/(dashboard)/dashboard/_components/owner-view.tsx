@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -23,7 +23,6 @@ import {
   Plus,
   DollarSign,
   TrendingUp,
-  Clock,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -62,22 +61,12 @@ const formatTime = (dateStr: string): string =>
   });
 
 /** Status badge styling */
-const statusStyles: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  no_show: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
-};
-
-/** Human-readable status descriptions for tooltips */
-const statusTooltips: Record<string, string> = {
-  pending: 'Awaiting confirmation from the business',
-  confirmed: 'Booking has been confirmed',
-  completed: 'Service was delivered successfully',
-  cancelled: 'Booking was cancelled',
-  no_show: 'Customer did not show up',
-};
+import {
+  BookingStatus,
+  BOOKING_STATUS_STYLES,
+  BOOKING_STATUS_DESCRIPTIONS,
+  BOOKING_STATUS_LABELS,
+} from '@/lib/constants';
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -220,7 +209,7 @@ export function OwnerView() {
       .catch(() => setUpcomingBookings([]));
 
     // Fetch all pending bookings separately (any date)
-    const pendingPromise = getBookings({ limit: 50, status: 'pending' })
+    const pendingPromise = getBookings({ limit: 50, status: BookingStatus.PENDING })
       .then((result) => {
         if (result.success) setPendingBookings(result.data.bookings);
         else setPendingBookings([]);
@@ -354,51 +343,51 @@ export function OwnerView() {
           description={
             analytics?.bookingsByStatus ? (
               <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                {(analytics.bookingsByStatus.pending ?? 0) > 0 && (
+                {(analytics.bookingsByStatus[BookingStatus.PENDING] ?? 0) > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                         <AlertCircle className="h-3 w-3" />
-                        {analytics.bookingsByStatus.pending} pending
+                        {analytics.bookingsByStatus[BookingStatus.PENDING]} pending
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Bookings awaiting confirmation</p>
+                      <p>{BOOKING_STATUS_DESCRIPTIONS[BookingStatus.PENDING]}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {(analytics.bookingsByStatus.confirmed ?? 0) > 0 && (
+                {(analytics.bookingsByStatus[BookingStatus.CONFIRMED] ?? 0) > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
                         <CheckCircle2 className="h-3 w-3" />
-                        {analytics.bookingsByStatus.confirmed} confirmed
+                        {analytics.bookingsByStatus[BookingStatus.CONFIRMED]} confirmed
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Upcoming confirmed bookings</p>
+                      <p>{BOOKING_STATUS_DESCRIPTIONS[BookingStatus.CONFIRMED]}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {(analytics.bookingsByStatus.completed ?? 0) > 0 && (
+                {(analytics.bookingsByStatus[BookingStatus.COMPLETED] ?? 0) > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
                         <CheckCircle2 className="h-3 w-3" />
-                        {analytics.bookingsByStatus.completed} completed
+                        {analytics.bookingsByStatus[BookingStatus.COMPLETED]} completed
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Successfully completed bookings</p>
+                      <p>{BOOKING_STATUS_DESCRIPTIONS[BookingStatus.COMPLETED]}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {(analytics.bookingsByStatus.cancelled ?? 0) > 0 && (
+                {(analytics.bookingsByStatus[BookingStatus.CANCELLED] ?? 0) > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
                         <XCircle className="h-3 w-3" />
-                        {analytics.bookingsByStatus.cancelled} cancelled
+                        {analytics.bookingsByStatus[BookingStatus.CANCELLED]} cancelled
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -480,14 +469,22 @@ export function OwnerView() {
                         <span
                           className={cn(
                             'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                            statusStyles[booking.status] ?? statusStyles.pending
+                            BOOKING_STATUS_STYLES[
+                              booking.status as keyof typeof BOOKING_STATUS_STYLES
+                            ] ?? BOOKING_STATUS_STYLES[BookingStatus.PENDING]
                           )}
                         >
-                          {booking.status}
+                          {BOOKING_STATUS_LABELS[
+                            booking.status as keyof typeof BOOKING_STATUS_LABELS
+                          ] ?? booking.status}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="left">
-                        <p>{statusTooltips[booking.status] ?? booking.status}</p>
+                        <p>
+                          {BOOKING_STATUS_DESCRIPTIONS[
+                            booking.status as keyof typeof BOOKING_STATUS_DESCRIPTIONS
+                          ] ?? booking.status}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -734,14 +731,22 @@ export function OwnerView() {
                           <span
                             className={cn(
                               'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                              statusStyles[rb.status] ?? statusStyles.pending
+                              BOOKING_STATUS_STYLES[
+                                rb.status as keyof typeof BOOKING_STATUS_STYLES
+                              ] ?? BOOKING_STATUS_STYLES[BookingStatus.PENDING]
                             )}
                           >
-                            {rb.status}
+                            {BOOKING_STATUS_LABELS[
+                              rb.status as keyof typeof BOOKING_STATUS_LABELS
+                            ] ?? rb.status}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="left">
-                          <p>{statusTooltips[rb.status] ?? rb.status}</p>
+                          <p>
+                            {BOOKING_STATUS_DESCRIPTIONS[
+                              rb.status as keyof typeof BOOKING_STATUS_DESCRIPTIONS
+                            ] ?? rb.status}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </td>

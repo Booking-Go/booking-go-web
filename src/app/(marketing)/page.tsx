@@ -1,7 +1,20 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Calendar, Users, TrendingUp, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FeatureCard, StepCard, TestimonialCard, Highlight, Footer } from '@/components/marketing';
+
+export const metadata: Metadata = {
+  title: 'Booking.go — Modern Scheduling for Small Businesses',
+  description:
+    'Simplify your booking management. Discover salons, clinics, gyms, and more — book appointments in seconds.',
+  openGraph: {
+    title: 'Booking.go — Modern Scheduling for Small Businesses',
+    description:
+      'Simplify your booking management. Discover salons, clinics, gyms, and more — book appointments in seconds.',
+    type: 'website',
+  },
+};
 
 export default function Home() {
   return (

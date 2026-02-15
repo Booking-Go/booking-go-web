@@ -9,6 +9,7 @@ import { getUnreadNotificationCount } from '@/actions/notification';
 import { getUnreadMessageCount } from '@/actions/message';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { toast } from 'sonner';
+import { USER_ROLE_LABELS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -116,11 +117,7 @@ export function NavAuth() {
               {user.firstName} {user.lastName}
             </div>
             <div className="text-xs text-muted-foreground">
-              {user.role === 'business_owner'
-                ? 'Business Owner'
-                : user.role === 'admin'
-                  ? 'Admin'
-                  : 'Customer'}
+              {USER_ROLE_LABELS[user.role] ?? user.role}
             </div>
           </div>
           <DropdownMenuSeparator />

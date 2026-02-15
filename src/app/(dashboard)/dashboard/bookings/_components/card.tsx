@@ -3,6 +3,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Users, IndianRupee, Store, ChevronRight } from 'lucide-react';
+import {
+  BookingStatus,
+  BOOKING_STATUS_LABELS,
+  BOOKING_STATUS_VARIANTS,
+  UserRole,
+  type BookingStatusValue,
+} from '@/lib/constants';
 import type { Booking } from '@/types';
 
 interface BookingCardProps {
@@ -14,19 +21,12 @@ interface BookingCardProps {
   onComplete?: (booking: Booking) => void;
 }
 
-const statusConfig: Record<
-  string,
-  {
-    label: string;
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-    className?: string;
-  }
-> = {
-  pending: { label: 'Pending', variant: 'outline', className: 'text-amber-600 border-amber-300' },
-  confirmed: { label: 'Confirmed', variant: 'secondary', className: 'text-blue-600' },
-  completed: { label: 'Completed', variant: 'secondary', className: 'text-green-600' },
-  cancelled: { label: 'Cancelled', variant: 'destructive' },
-  no_show: { label: 'No Show', variant: 'outline', className: 'text-red-500 border-red-300' },
+/** Per-status badge className overrides (on top of the variant). */
+const STATUS_CLASS_NAMES: Partial<Record<BookingStatusValue, string>> = {
+  [BookingStatus.PENDING]: 'text-amber-600 border-amber-300',
+  [BookingStatus.CONFIRMED]: 'text-blue-600',
+  [BookingStatus.COMPLETED]: 'text-green-600',
+  [BookingStatus.NO_SHOW]: 'text-red-500 border-red-300',
 };
 
 export function BookingCard({
@@ -37,8 +37,11 @@ export function BookingCard({
   onCancel,
   onComplete,
 }: BookingCardProps) {
-  const status = statusConfig[booking.status] || statusConfig.pending;
-  const isOwner = userRole === 'business_owner' || userRole === 'admin';
+  const variant =
+    BOOKING_STATUS_VARIANTS[booking.status] ?? BOOKING_STATUS_VARIANTS[BookingStatus.PENDING];
+  const label = BOOKING_STATUS_LABELS[booking.status] ?? booking.status;
+  const statusClassName = STATUS_CLASS_NAMES[booking.status];
+  const isOwner = userRole === UserRole.BUSINESS_OWNER || userRole === UserRole.ADMIN;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(undefined, {
@@ -58,8 +61,8 @@ export function BookingCard({
       <div className="min-w-0 flex-1 space-y-1.5">
         {/* Top row: status + service */}
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={status.variant} className={status.className}>
-            {status.label}
+          <Badge variant={variant} className={statusClassName}>
+            {label}
           </Badge>
           {booking.service && <span className="text-sm font-medium">{booking.service.name}</span>}
         </div>
@@ -108,7 +111,7 @@ export function BookingCard({
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-1 pl-4">
-        {isOwner && booking.status === 'pending' && onConfirm && (
+        {isOwner && booking.status === BookingStatus.PENDING && onConfirm && (
           <Button
             variant="outline"
             size="sm"
@@ -121,7 +124,7 @@ export function BookingCard({
             Confirm
           </Button>
         )}
-        {booking.status === 'confirmed' && isOwner && onComplete && (
+        {booking.status === BookingStatus.CONFIRMED && isOwner && onComplete && (
           <Button
             variant="outline"
             size="sm"
@@ -134,19 +137,20 @@ export function BookingCard({
             Complete
           </Button>
         )}
-        {(booking.status === 'pending' || booking.status === 'confirmed') && onCancel && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancel(booking);
-            }}
-          >
-            Cancel
-          </Button>
-        )}
+        {(booking.status === BookingStatus.PENDING || booking.status === BookingStatus.CONFIRMED) &&
+          onCancel && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel(booking);
+              }}
+            >
+              Cancel
+            </Button>
+          )}
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(booking)}>
           <ChevronRight className="h-4 w-4" />
         </Button>

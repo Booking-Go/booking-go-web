@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { serverFetch } from '@/lib/server-api';
 import { ProfileForm } from './_components/form';
 import type { User } from '@/types';
+
+export const metadata: Metadata = {
+  title: 'Profile',
+};
 
 /**
  * Profile page — Server Component.

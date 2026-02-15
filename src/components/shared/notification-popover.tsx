@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { NotificationType } from '@/lib/constants';
 import {
   Bell,
   Calendar,
@@ -20,6 +22,7 @@ import {
   Store,
   CheckCheck,
   ArrowRight,
+  Clock,
 } from 'lucide-react';
 import type { Notification } from '@/types';
 
@@ -27,40 +30,48 @@ import type { Notification } from '@/types';
 // Notification type → icon/color mapping
 // ────────────────────────────────────────────────────────────────
 
-const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-  booking_created: {
+const typeConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  [NotificationType.BOOKING_CREATED]: {
     icon: <Calendar className="h-4 w-4" />,
     color: 'text-blue-500 bg-blue-500/10',
+    label: 'New Booking',
   },
-  booking_confirmed: {
+  [NotificationType.BOOKING_CONFIRMED]: {
     icon: <CheckCircle2 className="h-4 w-4" />,
     color: 'text-green-500 bg-green-500/10',
+    label: 'Confirmed',
   },
-  booking_cancelled: {
+  [NotificationType.BOOKING_CANCELLED]: {
     icon: <XCircle className="h-4 w-4" />,
     color: 'text-red-500 bg-red-500/10',
+    label: 'Cancelled',
   },
-  booking_completed: {
+  [NotificationType.BOOKING_COMPLETED]: {
     icon: <CheckCircle2 className="h-4 w-4" />,
     color: 'text-emerald-500 bg-emerald-500/10',
+    label: 'Completed',
   },
-  booking_reminder: {
-    icon: <Calendar className="h-4 w-4" />,
+  [NotificationType.BOOKING_REMINDER]: {
+    icon: <Clock className="h-4 w-4" />,
     color: 'text-amber-500 bg-amber-500/10',
+    label: 'Reminder',
   },
-  review_received: {
+  [NotificationType.REVIEW_RECEIVED]: {
     icon: <Star className="h-4 w-4" />,
     color: 'text-yellow-500 bg-yellow-500/10',
+    label: 'Review',
   },
-  business_update: {
+  [NotificationType.BUSINESS_UPDATE]: {
     icon: <Store className="h-4 w-4" />,
     color: 'text-purple-500 bg-purple-500/10',
+    label: 'Update',
   },
 };
 
 const fallbackConfig = {
   icon: <Bell className="h-4 w-4" />,
   color: 'text-muted-foreground bg-muted',
+  label: 'Notification',
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -78,6 +89,29 @@ const formatTime = (iso: string): string => {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+};
+
+/**
+ * Build a deep-link path for a notification based on its type and metadata.
+ * Falls back to the notifications page.
+ */
+const getNotificationLink = (notif: Notification): string => {
+  const bookingId = notif.data?.bookingId as string | undefined;
+
+  switch (notif.type) {
+    case NotificationType.BOOKING_CREATED:
+    case NotificationType.BOOKING_CONFIRMED:
+    case NotificationType.BOOKING_CANCELLED:
+    case NotificationType.BOOKING_COMPLETED:
+    case NotificationType.BOOKING_REMINDER:
+      return bookingId ? `/dashboard/bookings?highlight=${bookingId}` : '/dashboard/bookings';
+    case NotificationType.REVIEW_RECEIVED:
+      return '/dashboard/analytics';
+    case NotificationType.BUSINESS_UPDATE:
+      return '/dashboard/businesses';
+    default:
+      return '/dashboard/notifications';
+  }
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -100,6 +134,7 @@ export function NotificationPopover({ unreadCount, onCountChange }: Notification
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const router = useRouter();
 
   /** Fetch the latest few notifications when the popover opens. */
   const fetchRecent = useCallback(async () => {
@@ -201,6 +236,7 @@ export function NotificationPopover({ unreadCount, onCountChange }: Notification
             <div className="py-1">
               {notifications.map((notif) => {
                 const config = typeConfig[notif.type] ?? fallbackConfig;
+                const link = getNotificationLink(notif);
                 return (
                   <button
                     key={notif.id}
@@ -210,11 +246,13 @@ export function NotificationPopover({ unreadCount, onCountChange }: Notification
                     )}
                     onClick={() => {
                       if (!notif.isRead) handleMarkRead(notif.id);
+                      setOpen(false);
+                      router.push(link);
                     }}
                   >
                     <div
                       className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
                         config.color
                       )}
                     >
@@ -222,21 +260,35 @@ export function NotificationPopover({ unreadCount, onCountChange }: Notification
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p
-                          className={cn(
-                            'truncate text-sm',
-                            !notif.isRead ? 'font-semibold' : 'font-medium text-muted-foreground'
-                          )}
-                        >
-                          {notif.title}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p
+                              className={cn(
+                                'truncate text-sm',
+                                !notif.isRead
+                                  ? 'font-semibold'
+                                  : 'font-medium text-muted-foreground'
+                              )}
+                            >
+                              {notif.title}
+                            </p>
+                            <span
+                              className={cn(
+                                'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+                                config.color
+                              )}
+                            >
+                              {config.label}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            {notif.message}
+                          </p>
+                        </div>
                         {!notif.isRead && (
                           <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                         )}
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                        {notif.message}
-                      </p>
                       <p className="mt-1 text-[10px] text-muted-foreground/70">
                         {formatTime(notif.createdAt)}
                       </p>

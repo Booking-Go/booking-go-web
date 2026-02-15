@@ -1,3 +1,5 @@
+import { UserRole } from '@/lib/constants';
+
 /**
  * Centralized route configuration for the Booking.go platform.
  *
@@ -72,8 +74,8 @@ export const getRouteAccess = (pathname: string): RouteAccess => {
 
 /** Default redirect targets after authentication. */
 export const DEFAULT_REDIRECTS = {
-  customer: '/explore',
-  business_owner: '/dashboard',
+  [UserRole.CUSTOMER]: '/explore',
+  [UserRole.BUSINESS_OWNER]: '/dashboard',
   fallback: '/dashboard',
 } as const;
 

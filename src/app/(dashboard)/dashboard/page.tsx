@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { CustomerView } from './_components/customer-view';
 import { OwnerView } from './_components/owner-view';
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+};
 
 /**
  * Dashboard home page — Server Component.

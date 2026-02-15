@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { UserRole } from '@/lib/constants';
 import { MessageSquare, ArrowRight } from 'lucide-react';
 import type { Conversation } from '@/types';
 
@@ -58,7 +59,7 @@ export function MessagePopover({ unreadCount, onCountChange }: MessagePopoverPro
   const { user } = useAuthStore();
   const router = useRouter();
 
-  const isOwner = user?.role === 'business_owner';
+  const isOwner = user?.role === UserRole.BUSINESS_OWNER;
 
   /** Fetch the latest conversations when the popover opens. */
   const fetchRecent = useCallback(async () => {

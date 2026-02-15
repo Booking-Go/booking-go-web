@@ -95,12 +95,12 @@ export function Footer({ hideCta = false }: { hideCta?: boolean }) {
               <p className="text-sm font-medium">Legal</p>
               <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="transition-colors hover:text-foreground">
+                  <a href="/privacy" className="transition-colors hover:text-foreground">
                     Privacy
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="transition-colors hover:text-foreground">
+                  <a href="/terms" className="transition-colors hover:text-foreground">
                     Terms
                   </a>
                 </li>

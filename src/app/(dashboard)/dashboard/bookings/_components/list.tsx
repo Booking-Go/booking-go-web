@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useAuthStore } from '@/store/authStore';
 import {
   getBookings,
   confirmBooking,
@@ -10,7 +9,6 @@ import {
   createReview,
 } from '@/actions/booking';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PageHeader, ConfirmDialog, Modal, AddToCalendar } from '@/components/shared';
+import { PageHeader, Modal, AddToCalendar } from '@/components/shared';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -37,31 +35,31 @@ import {
   ChevronRight,
   CalendarDays,
   Star,
+  Scissors,
+  User,
+  Mail,
+  Phone,
+  StickyNote,
+  Ban,
 } from 'lucide-react';
 import { bookingToCalendarEvent, type CalendarPerspective } from '@/lib/calendar';
+import {
+  BookingStatus,
+  BOOKING_STATUS_FILTER_OPTIONS,
+  BOOKING_STATUS_LABELS,
+  BOOKING_STATUS_VARIANTS,
+  UserRole,
+  type BookingStatusValue,
+} from '@/lib/constants';
 import type { Booking, PaginationMeta } from '@/types';
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Bookings' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const statusConfig: Record<
-  string,
-  {
-    label: string;
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-    icon: typeof CheckCircle2;
-  }
-> = {
-  pending: { label: 'Pending', variant: 'outline', icon: AlertCircle },
-  confirmed: { label: 'Confirmed', variant: 'default', icon: CheckCircle2 },
-  completed: { label: 'Completed', variant: 'secondary', icon: CheckCircle2 },
-  cancelled: { label: 'Cancelled', variant: 'destructive', icon: XCircle },
-  no_show: { label: 'No Show', variant: 'destructive', icon: XCircle },
+/** Icon mapping for each booking status. */
+const STATUS_ICONS: Record<BookingStatusValue, typeof CheckCircle2> = {
+  [BookingStatus.PENDING]: AlertCircle,
+  [BookingStatus.CONFIRMED]: CheckCircle2,
+  [BookingStatus.COMPLETED]: CheckCircle2,
+  [BookingStatus.CANCELLED]: XCircle,
+  [BookingStatus.NO_SHOW]: XCircle,
 };
 
 interface BookingListProps {
@@ -94,7 +92,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
 
-  const isOwner = userRole === 'business_owner';
+  const isOwner = userRole === UserRole.BUSINESS_OWNER;
   const calendarPerspective: CalendarPerspective = isOwner ? 'owner' : 'customer';
 
   /** Refetch bookings client-side when filters/pagination change. */
@@ -239,7 +237,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((opt) => (
+            {BOOKING_STATUS_FILTER_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
@@ -270,8 +268,11 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
       ) : (
         <div className="space-y-3">
           {bookings.map((booking) => {
-            const cfg = statusConfig[booking.status] || statusConfig.pending;
-            const StatusIcon = cfg.icon;
+            const StatusIcon = STATUS_ICONS[booking.status] ?? STATUS_ICONS[BookingStatus.PENDING];
+            const variant =
+              BOOKING_STATUS_VARIANTS[booking.status] ??
+              BOOKING_STATUS_VARIANTS[BookingStatus.PENDING];
+            const label = BOOKING_STATUS_LABELS[booking.status] ?? booking.status;
             return (
               <Card
                 key={booking.id}
@@ -281,9 +282,9 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <Badge variant={cfg.variant} className="text-xs">
+                      <Badge variant={variant} className="text-xs">
                         <StatusIcon className="mr-1 h-3 w-3" />
-                        {cfg.label}
+                        {label}
                       </Badge>
                       {booking.business && (
                         <span className="text-sm font-medium">{booking.business.name}</span>
@@ -325,7 +326,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Owner actions */}
-                    {isOwner && booking.status === 'pending' && (
+                    {isOwner && booking.status === BookingStatus.PENDING && (
                       <Button
                         size="sm"
                         onClick={() => handleConfirm(booking.id)}
@@ -339,7 +340,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                         Confirm
                       </Button>
                     )}
-                    {isOwner && booking.status === 'confirmed' && (
+                    {isOwner && booking.status === BookingStatus.CONFIRMED && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -355,7 +356,8 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                       </Button>
                     )}
                     {/* Cancel — available for pending/confirmed */}
-                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                    {(booking.status === BookingStatus.PENDING ||
+                      booking.status === BookingStatus.CONFIRMED) && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -368,7 +370,7 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                     )}
                     {/* Review — customer can review completed bookings */}
                     {!isOwner &&
-                      booking.status === 'completed' &&
+                      booking.status === BookingStatus.COMPLETED &&
                       !reviewedBookingIds.has(booking.id) && (
                         <Button
                           size="sm"
@@ -384,7 +386,8 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
                         </Button>
                       )}
                     {/* Add to Calendar — active bookings only */}
-                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                    {(booking.status === BookingStatus.PENDING ||
+                      booking.status === BookingStatus.CONFIRMED) && (
                       <AddToCalendar
                         event={bookingToCalendarEvent(booking, calendarPerspective)}
                         size="sm"
@@ -472,108 +475,222 @@ export function BookingList({ initialBookings, initialMeta, userRole }: BookingL
         className="max-w-md"
       >
         {detailBooking && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge variant={statusConfig[detailBooking.status]?.variant || 'outline'}>
-                {statusConfig[detailBooking.status]?.label || detailBooking.status}
+          <div className="space-y-5">
+            {/* Header — status + business + service */}
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                {detailBooking.business && (
+                  <h3 className="text-base font-semibold">{detailBooking.business.name}</h3>
+                )}
+                {detailBooking.service && (
+                  <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Scissors className="h-3.5 w-3.5" />
+                    {detailBooking.service.name}
+                  </p>
+                )}
+              </div>
+              <Badge variant={BOOKING_STATUS_VARIANTS[detailBooking.status] ?? 'outline'}>
+                {BOOKING_STATUS_LABELS[detailBooking.status] ?? detailBooking.status}
               </Badge>
             </div>
 
-            <div className="space-y-2 text-sm">
-              {detailBooking.business && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Business</span>
-                  <span className="font-medium">{detailBooking.business.name}</span>
-                </div>
-              )}
-              {detailBooking.service && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service</span>
-                  <span>{detailBooking.service.name}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span>{formatDate(detailBooking.bookingDate)}</span>
+            {/* Appointment info — date, time, price in a card */}
+            <div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 p-3">
+              <div className="space-y-1 text-center">
+                <Calendar className="mx-auto h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Date</p>
+                <p className="text-sm font-medium">{formatDate(detailBooking.bookingDate)}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Time</span>
-                <span>
+              <div className="space-y-1 text-center">
+                <Clock className="mx-auto h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Time</p>
+                <p className="text-sm font-medium">
                   {formatTime(detailBooking.startTime)} – {formatTime(detailBooking.endTime)}
-                </span>
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Price</span>
-                <span className="font-medium">₹{detailBooking.totalPrice.toFixed(2)}</span>
+              <div className="space-y-1 text-center">
+                <IndianRupee className="mx-auto h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-sm font-semibold">₹{detailBooking.totalPrice.toFixed(2)}</p>
               </div>
-              {detailBooking.numberOfPeople > 1 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">People</span>
-                  <span>{detailBooking.numberOfPeople}</span>
-                </div>
-              )}
-              {isOwner && detailBooking.customerName && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Customer</span>
-                    <span>{detailBooking.customerName}</span>
+            </div>
+
+            {/* People count (if > 1) */}
+            {detailBooking.numberOfPeople > 1 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">People</span>
+                <span className="ml-auto font-medium">{detailBooking.numberOfPeople}</span>
+              </div>
+            )}
+
+            {/* Customer info — owner only */}
+            {isOwner && detailBooking.customerName && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Customer
+                </p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-medium">{detailBooking.customerName}</span>
                   </div>
                   {detailBooking.customerEmail && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Email</span>
-                      <span className="truncate pl-4">{detailBooking.customerEmail}</span>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="truncate text-muted-foreground">
+                        {detailBooking.customerEmail}
+                      </span>
                     </div>
                   )}
                   {detailBooking.customerPhone && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Phone</span>
-                      <span>{detailBooking.customerPhone}</span>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">{detailBooking.customerPhone}</span>
                     </div>
                   )}
-                </>
-              )}
-              {detailBooking.notes && (
-                <div className="pt-2">
-                  <span className="text-muted-foreground">Notes</span>
-                  <p className="mt-1 rounded-lg bg-muted/50 p-2 text-xs">{detailBooking.notes}</p>
                 </div>
-              )}
-              {detailBooking.cancellationReason && (
-                <div className="pt-2">
-                  <span className="text-muted-foreground">Cancellation Reason</span>
-                  <p className="mt-1 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-400">
-                    {detailBooking.cancellationReason}
-                  </p>
-                </div>
-              )}
-              {detailBooking.confirmedAt && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Confirmed</span>
-                  <span>{new Date(detailBooking.confirmedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {detailBooking.completedAt && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Completed</span>
-                  <span>{new Date(detailBooking.completedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {detailBooking.cancelledAt && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Cancelled</span>
-                  <span>{new Date(detailBooking.cancelledAt).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Add to Calendar — show for active bookings */}
-            {(detailBooking.status === 'pending' || detailBooking.status === 'confirmed') && (
-              <div className="flex items-center justify-between border-t pt-4">
-                <p className="text-xs font-medium text-muted-foreground">Add to Calendar</p>
-                <AddToCalendar
-                  event={bookingToCalendarEvent(detailBooking, calendarPerspective)}
-                  size="default"
-                />
+            {/* Notes */}
+            {detailBooking.notes && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Notes
+                </p>
+                <p className="rounded-lg bg-muted/50 p-2.5 text-sm leading-relaxed">
+                  {detailBooking.notes}
+                </p>
+              </div>
+            )}
+
+            {/* Cancellation reason */}
+            {detailBooking.cancellationReason && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <Ban className="h-3.5 w-3.5" />
+                  Cancellation Reason
+                </p>
+                <p className="rounded-lg bg-red-50 p-2.5 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
+                  {detailBooking.cancellationReason}
+                </p>
+              </div>
+            )}
+
+            {/* Timestamps */}
+            {(detailBooking.confirmedAt ||
+              detailBooking.completedAt ||
+              detailBooking.cancelledAt) && (
+              <div className="space-y-1 border-t pt-3 text-xs text-muted-foreground">
+                {detailBooking.confirmedAt && (
+                  <div className="flex justify-between">
+                    <span>Confirmed</span>
+                    <span>{new Date(detailBooking.confirmedAt).toLocaleString()}</span>
+                  </div>
+                )}
+                {detailBooking.completedAt && (
+                  <div className="flex justify-between">
+                    <span>Completed</span>
+                    <span>{new Date(detailBooking.completedAt).toLocaleString()}</span>
+                  </div>
+                )}
+                {detailBooking.cancelledAt && (
+                  <div className="flex justify-between">
+                    <span>Cancelled</span>
+                    <span>{new Date(detailBooking.cancelledAt).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Actions — match the listing page buttons */}
+            {(detailBooking.status === BookingStatus.PENDING ||
+              detailBooking.status === BookingStatus.CONFIRMED ||
+              (!isOwner && detailBooking.status === BookingStatus.COMPLETED)) && (
+              <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+                {/* Owner: Confirm pending */}
+                {isOwner && detailBooking.status === BookingStatus.PENDING && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      handleConfirm(detailBooking.id);
+                      setDetailBooking(null);
+                    }}
+                    disabled={confirming === detailBooking.id}
+                  >
+                    {confirming === detailBooking.id ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    Confirm
+                  </Button>
+                )}
+                {/* Owner: Complete confirmed */}
+                {isOwner && detailBooking.status === BookingStatus.CONFIRMED && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      handleComplete(detailBooking.id);
+                      setDetailBooking(null);
+                    }}
+                    disabled={completing === detailBooking.id}
+                  >
+                    {completing === detailBooking.id ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    Complete
+                  </Button>
+                )}
+                {/* Cancel — available for pending/confirmed */}
+                {(detailBooking.status === BookingStatus.PENDING ||
+                  detailBooking.status === BookingStatus.CONFIRMED) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setDetailBooking(null);
+                      setCancelTarget(detailBooking);
+                    }}
+                  >
+                    <XCircle className="mr-1 h-3.5 w-3.5" />
+                    Cancel
+                  </Button>
+                )}
+                {/* Review — customer can review completed bookings */}
+                {!isOwner &&
+                  detailBooking.status === BookingStatus.COMPLETED &&
+                  !reviewedBookingIds.has(detailBooking.id) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDetailBooking(null);
+                        setReviewTarget(detailBooking);
+                        setReviewRating(5);
+                        setReviewComment('');
+                      }}
+                    >
+                      <Star className="mr-1 h-3.5 w-3.5" />
+                      Review
+                    </Button>
+                  )}
+                {/* Calendar icon — pushed to the right */}
+                {(detailBooking.status === BookingStatus.PENDING ||
+                  detailBooking.status === BookingStatus.CONFIRMED) && (
+                  <div className="ml-auto">
+                    <AddToCalendar
+                      event={bookingToCalendarEvent(detailBooking, calendarPerspective)}
+                      size="sm"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

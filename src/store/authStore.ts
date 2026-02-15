@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { UserRoleValue } from '@/lib/constants';
 
 interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: 'customer' | 'business_owner' | 'admin';
+  role: UserRoleValue;
 }
 
 interface AuthState {

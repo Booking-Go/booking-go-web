@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -10,7 +11,6 @@ import {
 } from '@/actions/notification';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared';
 import { toast } from 'sonner';
 import {
@@ -26,19 +26,89 @@ import {
   Trash2,
   XCircle,
   CheckCircle2,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NotificationType } from '@/lib/constants';
 import type { Notification, PaginationMeta } from '@/types';
 
-/** Map notification type to an icon and color. */
-const typeConfig: Record<string, { icon: typeof Bell; color: string }> = {
-  booking_created: { icon: Calendar, color: 'text-blue-500' },
-  booking_confirmed: { icon: CheckCircle2, color: 'text-green-500' },
-  booking_cancelled: { icon: XCircle, color: 'text-red-500' },
-  booking_completed: { icon: CheckCircle2, color: 'text-emerald-500' },
-  booking_reminder: { icon: Calendar, color: 'text-amber-500' },
-  review_received: { icon: Star, color: 'text-yellow-500' },
-  business_update: { icon: Store, color: 'text-purple-500' },
+/** Map notification type to an icon, color, and human-readable label. */
+const typeConfig: Record<
+  string,
+  { icon: typeof Bell; color: string; bgColor: string; label: string }
+> = {
+  [NotificationType.BOOKING_CREATED]: {
+    icon: Calendar,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-500/10',
+    label: 'New Booking',
+  },
+  [NotificationType.BOOKING_CONFIRMED]: {
+    icon: CheckCircle2,
+    color: 'text-green-500',
+    bgColor: 'bg-green-500/10',
+    label: 'Confirmed',
+  },
+  [NotificationType.BOOKING_CANCELLED]: {
+    icon: XCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-500/10',
+    label: 'Cancelled',
+  },
+  [NotificationType.BOOKING_COMPLETED]: {
+    icon: CheckCircle2,
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-500/10',
+    label: 'Completed',
+  },
+  [NotificationType.BOOKING_REMINDER]: {
+    icon: Clock,
+    color: 'text-amber-500',
+    bgColor: 'bg-amber-500/10',
+    label: 'Reminder',
+  },
+  [NotificationType.REVIEW_RECEIVED]: {
+    icon: Star,
+    color: 'text-yellow-500',
+    bgColor: 'bg-yellow-500/10',
+    label: 'Review',
+  },
+  [NotificationType.BUSINESS_UPDATE]: {
+    icon: Store,
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-500/10',
+    label: 'Update',
+  },
+};
+
+const fallbackConfig = {
+  icon: Bell,
+  color: 'text-muted-foreground',
+  bgColor: 'bg-muted',
+  label: 'Notification',
+};
+
+/**
+ * Build a deep-link path for a notification based on its type and metadata.
+ */
+const getNotificationLink = (notif: Notification): string | null => {
+  const bookingId = notif.data?.bookingId as string | undefined;
+
+  switch (notif.type) {
+    case NotificationType.BOOKING_CREATED:
+    case NotificationType.BOOKING_CONFIRMED:
+    case NotificationType.BOOKING_CANCELLED:
+    case NotificationType.BOOKING_COMPLETED:
+    case NotificationType.BOOKING_REMINDER:
+      return bookingId ? `/dashboard/bookings?highlight=${bookingId}` : '/dashboard/bookings';
+    case NotificationType.REVIEW_RECEIVED:
+      return '/dashboard/analytics';
+    case NotificationType.BUSINESS_UPDATE:
+      return '/dashboard/businesses';
+    default:
+      return null;
+  }
 };
 
 interface NotificationFeedProps {
@@ -200,11 +270,9 @@ export function NotificationFeed({ initialNotifications, initialMeta }: Notifica
       ) : (
         <div className="space-y-2">
           {notifications.map((notification) => {
-            const cfg = typeConfig[notification.type] || {
-              icon: Bell,
-              color: 'text-muted-foreground',
-            };
+            const cfg = typeConfig[notification.type] || fallbackConfig;
             const Icon = cfg.icon;
+            const link = getNotificationLink(notification);
 
             return (
               <Card
@@ -215,44 +283,83 @@ export function NotificationFeed({ initialNotifications, initialMeta }: Notifica
                 )}
               >
                 <CardContent className="flex items-start gap-3 p-4">
-                  <div className={cn('mt-0.5 shrink-0', cfg.color)}>
-                    <Icon className="h-5 w-5" />
+                  {/* Type icon with colored background */}
+                  <div
+                    className={cn(
+                      'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                      cfg.color,
+                      cfg.bgColor
+                    )}
+                  >
+                    <Icon className="h-4.5 w-4.5" />
                   </div>
+
+                  {/* Content */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className={cn('text-sm', !notification.isRead && 'font-semibold')}>
-                          {notification.title}
-                        </p>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
-                          {notification.message}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className={cn('text-sm', !notification.isRead && 'font-semibold')}>
+                            {notification.title}
+                          </p>
+                          <span
+                            className={cn(
+                              'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+                              cfg.color,
+                              cfg.bgColor
+                            )}
+                          >
+                            {cfg.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                        <div className="mt-2 flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground/70">
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          {link && (
+                            <Link
+                              href={link}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            >
+                              View details
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          )}
+                        </div>
                       </div>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatTime(notification.createdAt)}
+                        {new Date(notification.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </span>
                     </div>
                   </div>
-                  {!notification.isRead && (
+
+                  {/* Actions */}
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {!notification.isRead && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleMarkAsRead(notification.id)}
+                        aria-label="Mark as read"
+                      >
+                        <CheckCheck className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="shrink-0"
-                      onClick={() => handleMarkAsRead(notification.id)}
-                      aria-label="Mark as read"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(notification.id)}
+                      aria-label="Delete notification"
                     >
-                      <CheckCheck className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDelete(notification.id)}
-                    aria-label="Delete notification"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

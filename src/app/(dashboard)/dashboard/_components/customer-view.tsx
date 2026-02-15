@@ -7,6 +7,7 @@ import { getBookings } from '@/actions/booking';
 import { Button } from '@/components/ui/button';
 import { PageHeader, StatCard } from '@/components/shared';
 import { Calendar, Store, Clock, CheckCircle2 } from 'lucide-react';
+import { BookingStatus } from '@/lib/constants';
 import type { Booking } from '@/types';
 
 /**
@@ -27,7 +28,7 @@ export function CustomerView() {
   }, []);
 
   const upcomingBookings = bookings.filter(
-    (b) => b.status === 'confirmed' || b.status === 'pending'
+    (b) => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.PENDING
   );
 
   return (
@@ -49,7 +50,11 @@ export function CustomerView() {
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           title="Completed"
-          value={loading ? '...' : String(bookings.filter((b) => b.status === 'completed').length)}
+          value={
+            loading
+              ? '...'
+              : String(bookings.filter((b) => b.status === BookingStatus.COMPLETED).length)
+          }
           description="Past bookings"
         />
         <StatCard

@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { serverFetch } from '@/lib/server-api';
 import { BusinessEditor } from './_components/editor';
 import type { Business, BusinessHours, BusinessHoliday } from '@/types';
+
+export const metadata: Metadata = {
+  title: 'Business Details',
+};
 
 /**
  * Business detail page — Server Component.
