@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { logout as logoutAction } from '@/actions/auth';
+import { logout as logoutAction, refreshToken as refreshTokenAction } from '@/actions/auth';
 import { getUnreadNotificationCount } from '@/actions/notification';
 import { getUnreadMessageCount } from '@/actions/message';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ import {
   Bell,
   MessageSquare,
   BarChart3,
+  Bot,
   Compass,
 } from 'lucide-react';
 // Bell & MessageSquare still used in sidebar navItems
@@ -87,6 +88,11 @@ const navItems: NavItem[] = [
     label: 'Messages',
     href: '/dashboard/messages',
     icon: <MessageSquare className="h-4 w-4" />,
+  },
+  {
+    label: 'AI Assistant',
+    href: '/dashboard/ai-chat',
+    icon: <Bot className="h-4 w-4" />,
   },
   {
     label: 'Profile',
@@ -140,6 +146,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       // Non-critical — silently fail
     }
   }, []);
+
+  // Proactive token refresh: refresh the access token every 13 minutes
+  // (before the 15-minute expiry) to prevent 401s on polling calls
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshAccess = async () => {
+      const storedRefresh = localStorage.getItem('refreshToken');
+      if (!storedRefresh) return;
+      const result = await refreshTokenAction(storedRefresh);
+      if (result.success) {
+        localStorage.setItem('refreshToken', result.data.refreshToken);
+      } else {
+        logout();
+        router.push('/login');
+      }
+    };
+
+    const refreshInterval = setInterval(refreshAccess, 13 * 60_000);
+    return () => clearInterval(refreshInterval);
+  }, [user, logout, router]);
 
   useEffect(() => {
     if (user) {

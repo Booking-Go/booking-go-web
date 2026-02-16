@@ -331,3 +331,62 @@ export interface RevenueReport {
     revenue: number;
   }[];
 }
+
+// ─── AI Chat ──────────────────────────────────────────
+
+export type ChatIntentType =
+  | 'SEARCH_BUSINESS'
+  | 'CHECK_AVAILABILITY'
+  | 'MAKE_BOOKING'
+  | 'CANCEL_BOOKING'
+  | 'GET_RECOMMENDATIONS'
+  | 'GENERAL_QUESTION'
+  | 'UNCLEAR';
+
+export type AiChatRole = 'user' | 'assistant';
+
+export interface AiChatMessage {
+  role: AiChatRole;
+  content: string;
+  intent?: ChatIntentType;
+  timestamp: string;
+}
+
+export interface AiChatResponse {
+  response: string;
+  intent: ChatIntentType;
+  sessionId: string;
+  suggestions?: string[];
+}
+
+export interface AiConversationSummary {
+  sessionId: string;
+  status: 'active' | 'closed';
+  messageCount: number;
+  lastMessage: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiChatSession {
+  sessionId: string;
+  status: 'active' | 'closed';
+  messages: AiChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiSearchResult {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  city?: string;
+  similarity: number;
+}
+
+export interface AiSearchResponse {
+  results: AiSearchResult[];
+  query: string;
+  type: 'business' | 'service';
+}

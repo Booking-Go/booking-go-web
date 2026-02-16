@@ -11,3 +11,4 @@ export * from './review';
 export * from './service';
 export * from './slot';
 export * from './user';
+export * from './ai-chat';
